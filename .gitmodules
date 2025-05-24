@@ -1,0 +1,3 @@
+[submodule "examples/tfm-project"]
+	path = examples/tfm-project
+	url = git@github.com:sorinlg/tfm-project.git
