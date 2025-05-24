@@ -105,6 +105,16 @@ func RunCmdSilentStrict(command, message string, failMessage ...string) *CmdResu
 	return RunCmd(command, message, flags, failMessage...)
 }
 
+// RunCmdInteractive executes a command that requires user interaction (stdin)
+// It automatically disables decoration to ensure stdin works properly
+func RunCmdInteractive(command, message string, failMessage ...string) *CmdResult {
+	flags := DefaultCmdFlags()
+	flags.DecorateOutput = false // Disable decoration for interactive commands
+	flags.PrintOutput = true     // Keep output enabled for user feedback
+
+	return RunCmd(command, message, flags, failMessage...)
+}
+
 // execSystemCommand executes the actual system command
 func execSystemCommand(command string, flags *CmdFlags) *CmdResult {
 	// Debug the command being executed
@@ -127,6 +137,8 @@ func execSystemCommand(command string, flags *CmdFlags) *CmdResult {
 
 	if flags.PrintOutput && flags.DecorateOutput {
 		// If we need to decorate output, we need to capture and process it
+		// However, for interactive commands, we should not use decoration
+		// as it breaks stdin interaction
 		stdout, err := cmd.StdoutPipe()
 		if err != nil {
 			return &CmdResult{
@@ -144,6 +156,9 @@ func execSystemCommand(command string, flags *CmdFlags) *CmdResult {
 				Error:    err.Error(),
 			}
 		}
+
+		// Note: stdin is not connected when using pipes for decoration
+		// This means decorated output is incompatible with interactive commands
 
 		if err := cmd.Start(); err != nil {
 			return &CmdResult{
@@ -212,6 +227,7 @@ func execSystemCommand(command string, flags *CmdFlags) *CmdResult {
 		if flags.PrintOutput {
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
+			cmd.Stdin = os.Stdin // Enable interactive input
 		}
 		err = cmd.Run()
 

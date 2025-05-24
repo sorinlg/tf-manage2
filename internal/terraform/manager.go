@@ -58,24 +58,12 @@ func (m *Manager) Execute(cmd *Command) error {
 
 	framework.Info(fmt.Sprintf("Executing terraform %s", cmd.Action))
 
-	// For init command, run terraform init first, then handle workspace
-	if cmd.Action == "init" {
-		if err := m.terraformInit(cmd, paths); err != nil {
-			return fmt.Errorf("failed to initialize terraform: %w", err)
-		}
-
-		// After init, ensure workspace exists and is selected
+	// Check terraform workspace exists and is active
+	// Skip workspace validation for workspace, init, and fmt commands (matching bash __tf_controller logic)
+	if cmd.Action != "workspace" && cmd.Action != "init" && cmd.Action != "fmt" {
 		if err := m.ensureWorkspace(workspaceName); err != nil {
 			return fmt.Errorf("failed to ensure workspace: %w", err)
 		}
-
-		// Init is complete, return
-		return nil
-	}
-
-	// For all other commands, ensure workspace exists first, then execute
-	if err := m.ensureWorkspace(workspaceName); err != nil {
-		return fmt.Errorf("failed to ensure workspace: %w", err)
 	}
 
 	// Execute the terraform command
@@ -327,7 +315,8 @@ func (m *Manager) terraformInit(cmd *Command, paths *Paths) error {
 }
 
 func (m *Manager) terraformPlan(cmd *Command, paths *Paths) error {
-	terraformCmd := fmt.Sprintf("terraform plan -var-file=\"%s\" -out=\"%s\"", paths.VarFile, paths.PlanFile)
+	extraVars := m.generateTfmExtraVars(cmd)
+	terraformCmd := fmt.Sprintf("terraform plan -var-file=\"%s\" -out=\"%s\" %s", paths.VarFile, paths.PlanFile, extraVars)
 	if cmd.ActionFlags != "" {
 		terraformCmd += " " + cmd.ActionFlags
 	}
@@ -348,7 +337,8 @@ func (m *Manager) terraformPlan(cmd *Command, paths *Paths) error {
 
 func (m *Manager) terraformApply(cmd *Command, paths *Paths) error {
 	// Apply directly with var file (not using plan file)
-	terraformCmd := fmt.Sprintf("terraform apply -var-file=\"%s\"", paths.VarFile)
+	extraVars := m.generateTfmExtraVars(cmd)
+	terraformCmd := fmt.Sprintf("terraform apply -var-file=\"%s\" %s", paths.VarFile, extraVars)
 
 	// Add extra arguments in case we're running in "unattended" mode
 	if m.detectExecMode() == "unattended" {
@@ -359,19 +349,31 @@ func (m *Manager) terraformApply(cmd *Command, paths *Paths) error {
 		terraformCmd += " " + cmd.ActionFlags
 	}
 
-	flags := framework.DefaultCmdFlags()
-	flags.PrintMessage = false
-
 	// Notify user about the action
 	framework.Info("Executing terraform apply")
 	framework.Info("This will affect infrastructure resources.")
 
-	result := framework.RunCmd(
-		terraformCmd,
-		"Applying terraform changes",
-		flags,
-		"Terraform apply failed",
-	)
+	var result *framework.CmdResult
+
+	// Use interactive runner for operator mode, regular runner for unattended mode
+	if m.detectExecMode() == "unattended" {
+		flags := framework.DefaultCmdFlags()
+		flags.PrintMessage = false
+
+		result = framework.RunCmd(
+			terraformCmd,
+			"Applying terraform changes",
+			flags,
+			"Terraform apply failed",
+		)
+	} else {
+		// Interactive mode - use special interactive runner
+		result = framework.RunCmdInteractive(
+			terraformCmd,
+			"Applying terraform changes",
+			"Terraform apply failed",
+		)
+	}
 
 	if !result.Success {
 		return fmt.Errorf("terraform apply failed")
@@ -409,7 +411,8 @@ func (m *Manager) terraformApplyPlan(cmd *Command, paths *Paths) error {
 }
 
 func (m *Manager) terraformDestroy(cmd *Command, paths *Paths) error {
-	terraformCmd := fmt.Sprintf("terraform destroy -var-file=\"%s\"", paths.VarFile)
+	extraVars := m.generateTfmExtraVars(cmd)
+	terraformCmd := fmt.Sprintf("terraform destroy -var-file=\"%s\" %s", paths.VarFile, extraVars)
 
 	// Add extra arguments in case we're running in "unattended" mode
 	if m.detectExecMode() == "unattended" {
@@ -420,19 +423,31 @@ func (m *Manager) terraformDestroy(cmd *Command, paths *Paths) error {
 		terraformCmd += " " + cmd.ActionFlags
 	}
 
-	flags := framework.DefaultCmdFlags()
-	flags.PrintMessage = false
-
 	// Notify user about the action
 	framework.Info("Executing terraform destroy")
 	framework.Info("This will DESTROY infrastructure resources.")
 
-	result := framework.RunCmd(
-		terraformCmd,
-		"Destroying terraform resources",
-		flags,
-		"Terraform destroy failed",
-	)
+	var result *framework.CmdResult
+
+	// Use interactive runner for operator mode, regular runner for unattended mode
+	if m.detectExecMode() == "unattended" {
+		flags := framework.DefaultCmdFlags()
+		flags.PrintMessage = false
+
+		result = framework.RunCmd(
+			terraformCmd,
+			"Destroying terraform resources",
+			flags,
+			"Terraform destroy failed",
+		)
+	} else {
+		// Interactive mode - use special interactive runner
+		result = framework.RunCmdInteractive(
+			terraformCmd,
+			"Destroying terraform resources",
+			"Terraform destroy failed",
+		)
+	}
 
 	if !result.Success {
 		return fmt.Errorf("terraform destroy failed")
@@ -462,7 +477,8 @@ func (m *Manager) terraformOutput(cmd *Command, paths *Paths) error {
 }
 
 func (m *Manager) terraformImport(cmd *Command, paths *Paths) error {
-	terraformCmd := fmt.Sprintf("terraform import -var-file=\"%s\"", paths.VarFile)
+	extraVars := m.generateTfmExtraVars(cmd)
+	terraformCmd := fmt.Sprintf("terraform import -var-file=\"%s\" %s", paths.VarFile, extraVars)
 
 	// Add extra arguments in case we're running in "unattended" mode
 	if m.detectExecMode() == "unattended" {
@@ -473,19 +489,31 @@ func (m *Manager) terraformImport(cmd *Command, paths *Paths) error {
 		terraformCmd += " " + cmd.ActionFlags
 	}
 
-	flags := framework.DefaultCmdFlags()
-	flags.PrintMessage = false
-
 	// Notify user about the action
 	framework.Info("Executing terraform import")
 	framework.Info("This will affect infrastructure resources.")
 
-	result := framework.RunCmd(
-		terraformCmd,
-		"Importing terraform resource",
-		flags,
-		"Terraform import failed",
-	)
+	var result *framework.CmdResult
+
+	// Use interactive runner for operator mode, regular runner for unattended mode
+	if m.detectExecMode() == "unattended" {
+		flags := framework.DefaultCmdFlags()
+		flags.PrintMessage = false
+
+		result = framework.RunCmd(
+			terraformCmd,
+			"Importing terraform resource",
+			flags,
+			"Terraform import failed",
+		)
+	} else {
+		// Interactive mode - use special interactive runner
+		result = framework.RunCmdInteractive(
+			terraformCmd,
+			"Importing terraform resource",
+			"Terraform import failed",
+		)
+	}
 
 	if !result.Success {
 		return fmt.Errorf("terraform import failed")
@@ -555,7 +583,8 @@ func (m *Manager) terraformState(cmd *Command, paths *Paths) error {
 }
 
 func (m *Manager) terraformRefresh(cmd *Command, paths *Paths) error {
-	terraformCmd := fmt.Sprintf("terraform refresh -var-file=\"%s\"", paths.VarFile)
+	extraVars := m.generateTfmExtraVars(cmd)
+	terraformCmd := fmt.Sprintf("terraform refresh -var-file=\"%s\" %s", paths.VarFile, extraVars)
 	if cmd.ActionFlags != "" {
 		terraformCmd += " " + cmd.ActionFlags
 	}
@@ -702,4 +731,16 @@ func (m *Manager) terraformProviders(cmd *Command, paths *Paths) error {
 	}
 
 	return nil
+}
+
+// generateTfmExtraVars creates the terraform variable flags for tf-manage integration
+// This matches the bash version's _TFM_EXTRA_VARS functionality
+func (m *Manager) generateTfmExtraVars(cmd *Command) string {
+	return fmt.Sprintf("-var 'tfm_product=%s' -var 'tfm_repo=%s' -var 'tfm_module=%s' -var 'tfm_env=%s' -var 'tfm_module_instance=%s'",
+		cmd.Product,
+		m.config.RepoName,
+		cmd.Module,
+		cmd.Env,
+		cmd.ModuleInstance,
+	)
 }
