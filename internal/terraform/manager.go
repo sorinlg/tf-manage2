@@ -58,7 +58,22 @@ func (m *Manager) Execute(cmd *Command) error {
 
 	framework.Info(fmt.Sprintf("Executing terraform %s", cmd.Action))
 
-	// Ensure workspace exists and is selected
+	// For init command, run terraform init first, then handle workspace
+	if cmd.Action == "init" {
+		if err := m.terraformInit(cmd, paths); err != nil {
+			return fmt.Errorf("failed to initialize terraform: %w", err)
+		}
+
+		// After init, ensure workspace exists and is selected
+		if err := m.ensureWorkspace(workspaceName); err != nil {
+			return fmt.Errorf("failed to ensure workspace: %w", err)
+		}
+
+		// Init is complete, return
+		return nil
+	}
+
+	// For all other commands, ensure workspace exists first, then execute
 	if err := m.ensureWorkspace(workspaceName); err != nil {
 		return fmt.Errorf("failed to ensure workspace: %w", err)
 	}
@@ -90,8 +105,8 @@ func (m *Manager) validateCommand(cmd *Command) error {
 	flags.PrintOutput = false
 	flags.PrintMessage = false
 
-	result := framework.RunCmd(
-		fmt.Sprintf("test -d \"%s\"", productPath),
+	result := framework.RunNative(
+		framework.NativeTestDir(productPath),
 		fmt.Sprintf("Checking product %s is valid", framework.AddEmphasisBlue(cmd.Product)),
 		flags,
 		fmt.Sprintf("Product path \"%s\" was not found!", framework.AddEmphasisBlue(productPath)),
@@ -107,8 +122,8 @@ func (m *Manager) validateCommand(cmd *Command) error {
 		return fmt.Errorf("repo validation failed")
 	}
 
-	result = framework.RunCmd(
-		fmt.Sprintf("test ! -z \"%s\"", m.config.RepoName),
+	result = framework.RunNative(
+		framework.NativeTestNotEmpty(m.config.RepoName),
 		fmt.Sprintf("Checking repo %s is valid", framework.AddEmphasisBlue(m.config.RepoName)),
 		flags,
 		"Component is empty. Make sure the first argument is set to a non-null string",
@@ -120,8 +135,8 @@ func (m *Manager) validateCommand(cmd *Command) error {
 
 	// Check module exists
 	modulePath := filepath.Join(m.config.GetModulePath(), cmd.Module)
-	result = framework.RunCmd(
-		fmt.Sprintf("test -d \"%s\"", modulePath),
+	result = framework.RunNative(
+		framework.NativeTestDir(modulePath),
 		fmt.Sprintf("Checking module %s exists", framework.AddEmphasisBlue(cmd.Module)),
 		flags,
 		fmt.Sprintf("Module path \"%s\" was not found!", framework.AddEmphasisBlue(modulePath)),
@@ -133,8 +148,8 @@ func (m *Manager) validateCommand(cmd *Command) error {
 
 	// Check environment exists
 	envPath := filepath.Join(m.config.GetEnvPath(), cmd.Product, cmd.Env)
-	result = framework.RunCmd(
-		fmt.Sprintf("test -d \"%s\"", envPath),
+	result = framework.RunNative(
+		framework.NativeTestDir(envPath),
 		fmt.Sprintf("Checking environment %s exists", framework.AddEmphasisBlue(cmd.Env)),
 		flags,
 		fmt.Sprintf("Environment path \"%s\" was not found!", framework.AddEmphasisBlue(envPath)),
@@ -146,8 +161,8 @@ func (m *Manager) validateCommand(cmd *Command) error {
 
 	// Check config file exists
 	varFile := filepath.Join(envPath, cmd.Module, cmd.ModuleInstance+".tfvars")
-	result = framework.RunCmd(
-		fmt.Sprintf("test -f \"%s\"", varFile),
+	result = framework.RunNative(
+		framework.NativeTestFile(varFile),
 		fmt.Sprintf("Checking config %s.tfvars exists", framework.AddEmphasisBlue(cmd.ModuleInstance)),
 		flags,
 		fmt.Sprintf("Config file \"%s\" was not found!", framework.AddEmphasisBlue(varFile)),

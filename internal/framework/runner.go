@@ -46,7 +46,7 @@ type CmdResult struct {
 	Error    string
 }
 
-// RunCmd executes a command with the specified flags and message
+// RunCmd executes a system command with the specified flags and message
 func RunCmd(command, message string, flags *CmdFlags, failMessage ...string) *CmdResult {
 	if flags == nil {
 		flags = DefaultCmdFlags()
@@ -62,8 +62,8 @@ func RunCmd(command, message string, flags *CmdFlags, failMessage ...string) *Cm
 		Info(command)
 	}
 
-	// Execute the command
-	result := execCommand(command, flags)
+	// Execute the system command
+	result := execSystemCommand(command, flags)
 
 	// Parse and display status
 	parseStatus(message, result, flags, failMessage...)
@@ -105,8 +105,8 @@ func RunCmdSilentStrict(command, message string, failMessage ...string) *CmdResu
 	return RunCmd(command, message, flags, failMessage...)
 }
 
-// execCommand executes the actual command
-func execCommand(command string, flags *CmdFlags) *CmdResult {
+// execSystemCommand executes the actual system command
+func execSystemCommand(command string, flags *CmdFlags) *CmdResult {
 	// Debug the command being executed
 	Debug(fmt.Sprintf("Executing command: %s", command))
 
@@ -247,6 +247,125 @@ func execCommand(command string, flags *CmdFlags) *CmdResult {
 			Output:   output.String(),
 			Error:    errorOutput.String(),
 		}
+	}
+}
+
+// CommandType represents the type of command to execute
+type CommandType int
+
+const (
+	SystemCommand CommandType = iota
+	NativeCommand
+)
+
+// NativeFunc represents a native Go function that can be executed
+type NativeFunc func() *CmdResult
+
+// RunNative executes a native Go function with the specified flags and message
+func RunNative(nativeFunc NativeFunc, message string, flags *CmdFlags, failMessage ...string) *CmdResult {
+	if flags == nil {
+		flags = DefaultCmdFlags()
+	}
+
+	// Print the message if enabled
+	if flags.PrintMessage {
+		Info(message)
+	}
+
+	// Execute the native function
+	result := nativeFunc()
+
+	// Parse and display status
+	parseStatus(message, result, flags, failMessage...)
+
+	return result
+}
+
+// Enhanced native functions with better error reporting
+
+// TestDir checks if a directory exists (replacement for "test -d")
+func TestDir(path string) *CmdResult {
+	Debug(fmt.Sprintf("Native directory check: %s", path))
+
+	if info, err := os.Stat(path); err == nil && info.IsDir() {
+		return &CmdResult{
+			ExitCode: 0,
+			Success:  true,
+			Output:   fmt.Sprintf("Directory exists: %s", path),
+			Error:    "",
+		}
+	} else {
+		return &CmdResult{
+			ExitCode: 1,
+			Success:  false,
+			Output:   "",
+			Error:    fmt.Sprintf("Directory does not exist: %s", path),
+		}
+	}
+}
+
+// TestFile checks if a file exists (replacement for "test -f")
+func TestFile(path string) *CmdResult {
+	Debug(fmt.Sprintf("Native file check: %s", path))
+
+	if info, err := os.Stat(path); err == nil && !info.IsDir() {
+		return &CmdResult{
+			ExitCode: 0,
+			Success:  true,
+			Output:   fmt.Sprintf("File exists: %s", path),
+			Error:    "",
+		}
+	} else {
+		return &CmdResult{
+			ExitCode: 1,
+			Success:  false,
+			Output:   "",
+			Error:    fmt.Sprintf("File does not exist: %s", path),
+		}
+	}
+}
+
+// TestNotEmpty checks if a string is not empty (replacement for "test ! -z")
+func TestNotEmpty(value string) *CmdResult {
+	Debug(fmt.Sprintf("Native non-empty check: '%s'", value))
+
+	if value != "" {
+		return &CmdResult{
+			ExitCode: 0,
+			Success:  true,
+			Output:   fmt.Sprintf("String is not empty: '%s'", value),
+			Error:    "",
+		}
+	} else {
+		return &CmdResult{
+			ExitCode: 1,
+			Success:  false,
+			Output:   "",
+			Error:    "String is empty",
+		}
+	}
+}
+
+// Helper functions that return NativeFunc for easier usage
+
+// NativeTestDir returns a NativeFunc that checks if a directory exists
+func NativeTestDir(path string) NativeFunc {
+	return func() *CmdResult {
+		return TestDir(path)
+	}
+}
+
+// NativeTestFile returns a NativeFunc that checks if a file exists
+func NativeTestFile(path string) NativeFunc {
+	return func() *CmdResult {
+		return TestFile(path)
+	}
+}
+
+// NativeTestNotEmpty returns a NativeFunc that checks if a string is not empty
+func NativeTestNotEmpty(value string) NativeFunc {
+	return func() *CmdResult {
+		return TestNotEmpty(value)
 	}
 }
 
