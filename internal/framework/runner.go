@@ -31,7 +31,7 @@ func DefaultCmdFlags() *CmdFlags {
 		PrintOutput:     true,
 		PrintMessage:    true,
 		PrintStatus:     true,
-		PrintOutcome:    true,
+		PrintOutcome:    false,
 		StrictMessage:   "aborting...",
 		NoStrictMessage: "continuing...",
 		ValidExitCodes:  []int{0},
