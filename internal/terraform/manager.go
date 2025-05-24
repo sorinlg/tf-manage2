@@ -83,12 +83,6 @@ func (m *Manager) validateCommand(cmd *Command) error {
 	// Check product exists
 	productPath := filepath.Join(m.config.GetEnvPath(), cmd.Product)
 
-	// Debug output
-	framework.Debug(fmt.Sprintf("Project dir: %s", m.config.ProjectDir))
-	framework.Debug(fmt.Sprintf("Env rel path: %s", m.config.EnvRelPath))
-	framework.Debug(fmt.Sprintf("Env full path: %s", m.config.GetEnvPath()))
-	framework.Debug(fmt.Sprintf("Product path: %s", productPath))
-
 	flags := framework.DefaultCmdFlags()
 	flags.PrintOutput = false
 	flags.PrintMessage = false
@@ -196,16 +190,88 @@ func (m *Manager) generateWorkspace(cmd *Command, paths *Paths) string {
 }
 
 func (m *Manager) detectExecMode() string {
+	// Allow explicit override
 	if os.Getenv("TF_EXEC_MODE_OVERRIDE") != "" {
 		return "unattended"
 	}
 
-	user := os.Getenv("USER")
-	if user == "jenkins" {
+	// Check for CI/CD environment variables
+	if m.isRunningInCI() {
 		return "unattended"
 	}
 
+	// Default to interactive operator mode
 	return "operator"
+}
+
+// isRunningInCI detects if we're running in any popular CI/CD system
+func (m *Manager) isRunningInCI() bool {
+	// GitHub Actions
+	if os.Getenv("GITHUB_ACTIONS") == "true" {
+		return true
+	}
+
+	// GitLab CI
+	if os.Getenv("GITLAB_CI") == "true" {
+		return true
+	}
+
+	// CircleCI
+	if os.Getenv("CIRCLECI") == "true" {
+		return true
+	}
+
+	// Travis CI
+	if os.Getenv("TRAVIS") == "true" {
+		return true
+	}
+
+	// Azure DevOps / Azure Pipelines
+	if os.Getenv("TF_BUILD") == "True" {
+		return true
+	}
+
+	// Jenkins (multiple ways to detect)
+	if os.Getenv("JENKINS_URL") != "" || os.Getenv("BUILD_NUMBER") != "" {
+		return true
+	}
+
+	// Bamboo
+	if os.Getenv("bamboo_buildKey") != "" {
+		return true
+	}
+
+	// TeamCity
+	if os.Getenv("TEAMCITY_VERSION") != "" {
+		return true
+	}
+
+	// Buildkite
+	if os.Getenv("BUILDKITE") == "true" {
+		return true
+	}
+
+	// Drone CI
+	if os.Getenv("DRONE") == "true" {
+		return true
+	}
+
+	// AWS CodeBuild
+	if os.Getenv("CODEBUILD_BUILD_ID") != "" {
+		return true
+	}
+
+	// Generic CI indicator (set by many CI systems)
+	if os.Getenv("CI") == "true" || os.Getenv("CI") == "1" {
+		return true
+	}
+
+	// Fallback: Legacy Jenkins detection by username
+	if os.Getenv("USER") == "jenkins" {
+		return true
+	}
+
+	return false
 }
 
 func (m *Manager) ensureWorkspace(workspaceName string) error {
