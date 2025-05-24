@@ -221,73 +221,46 @@ func (m *Manager) detectExecMode() string {
 }
 
 func (m *Manager) ensureWorkspace(workspaceName string) error {
-	// Check if workspace exists
+	// Check if workspace exists using the same pattern as bash version
+	// Escape dots in workspace name for regex matching
+	escapedWorkspace := strings.ReplaceAll(workspaceName, ".", "\\.")
+	grepPattern := fmt.Sprintf("%s$", escapedWorkspace)
+
 	flags := framework.DefaultCmdFlags()
 	flags.PrintOutput = false
 	flags.PrintMessage = false
+	flags.PrintStatus = true
+	flags.PrintOutcome = false
 
 	result := framework.RunCmd(
-		"terraform workspace list",
-		"Checking available workspaces",
+		fmt.Sprintf("terraform workspace list | grep '%s'", grepPattern),
+		fmt.Sprintf("Checking workspace %s exists", framework.AddEmphasisBlue(workspaceName)),
 		flags,
 	)
 
+	// If workspace doesn't exist, create it
 	if !result.Success {
-		return fmt.Errorf("failed to list workspaces")
-	}
+		// Create new workspace
+		flags = framework.DefaultCmdFlags()
+		flags.PrintMessage = true
+		flags.PrintStatus = true
+		flags.PrintOutcome = false
 
-	// Check if workspace already exists (look for exact match with proper formatting)
-	lines := strings.Split(result.Output, "\n")
-	for _, line := range lines {
-		// Workspace list shows current workspace with "*" and others with spaces
-		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "* ") {
-			line = strings.TrimPrefix(line, "* ")
-		}
-		if line == workspaceName {
-			// Workspace exists, select it if not already current
-			if !strings.HasPrefix(strings.TrimSpace(line), "* ") {
-				return m.selectWorkspace(workspaceName)
-			}
-			// Already current workspace
-			return nil
+		result = framework.RunCmd(
+			fmt.Sprintf("terraform workspace new %s", workspaceName),
+			fmt.Sprintf("Creating workspace %s", framework.AddEmphasisRed(workspaceName)),
+			flags,
+			"Could not create workspace!",
+		)
+
+		if !result.Success {
+			return fmt.Errorf("failed to create workspace %s", workspaceName)
 		}
 	}
 
-	// Create new workspace (terraform workspace new also selects it)
-	flags = framework.DefaultCmdFlags()
-	flags.ValidExitCodes = []int{0, 1} // Allow exit code 1 for already existing workspace
-
-	result = framework.RunCmd(
-		fmt.Sprintf("terraform workspace new %s", workspaceName),
-		fmt.Sprintf("Creating workspace %s", framework.AddEmphasisBlue(workspaceName)),
-		flags,
-		fmt.Sprintf("Failed to create workspace %s", workspaceName),
-	)
-
-	// If workspace already exists, try to select it
-	if !result.Success && strings.Contains(result.Error, "already exists") {
-		return m.selectWorkspace(workspaceName)
-	}
-
-	if !result.Success {
-		return fmt.Errorf("failed to create workspace %s", workspaceName)
-	}
-
-	return nil
-}
-
-func (m *Manager) selectWorkspace(workspaceName string) error {
-	result := framework.RunCmd(
-		fmt.Sprintf("terraform workspace select %s", workspaceName),
-		fmt.Sprintf("Selecting workspace %s", framework.AddEmphasisBlue(workspaceName)),
-		framework.DefaultCmdFlags(),
-		fmt.Sprintf("Failed to select workspace %s", workspaceName),
-	)
-
-	if !result.Success {
-		return fmt.Errorf("failed to select workspace %s", workspaceName)
-	}
+	// Select workspace using environment variable (same as bash version)
+	os.Setenv("TF_WORKSPACE", workspaceName)
+	framework.Info(fmt.Sprintf("Selecting workspace %s", framework.AddEmphasisBlue(workspaceName)))
 
 	return nil
 }
@@ -300,10 +273,18 @@ func (m *Manager) executeTerraformAction(cmd *Command, paths *Paths, workspaceNa
 		return m.terraformPlan(cmd, paths)
 	case "apply":
 		return m.terraformApply(cmd, paths)
+	case "apply_plan":
+		return m.terraformApplyPlan(cmd, paths)
 	case "destroy":
 		return m.terraformDestroy(cmd, paths)
 	case "output":
 		return m.terraformOutput(cmd, paths)
+	case "get":
+		return m.terraformGet(cmd, paths)
+	case "workspace":
+		return m.terraformWorkspace(cmd, paths)
+	case "providers":
+		return m.terraformProviders(cmd, paths)
 	case "import":
 		return m.terraformImport(cmd, paths)
 	case "taint":
@@ -366,24 +347,57 @@ func (m *Manager) terraformPlan(cmd *Command, paths *Paths) error {
 }
 
 func (m *Manager) terraformApply(cmd *Command, paths *Paths) error {
-	var terraformCmd string
+	// Apply directly with var file (not using plan file)
+	terraformCmd := fmt.Sprintf("terraform apply -var-file=\"%s\"", paths.VarFile)
 
-	// Check if plan file exists
-	if _, err := os.Stat(paths.PlanFile); err == nil {
-		// Use plan file
-		terraformCmd = fmt.Sprintf("terraform apply \"%s\"", paths.PlanFile)
-	} else {
-		// Apply directly with var file
-		terraformCmd = fmt.Sprintf("terraform apply -var-file=\"%s\"", paths.VarFile)
-		if cmd.ActionFlags != "" {
-			terraformCmd += " " + cmd.ActionFlags
-		}
+	// Add extra arguments in case we're running in "unattended" mode
+	if m.detectExecMode() == "unattended" {
+		terraformCmd += " -input=false -auto-approve"
 	}
+
+	if cmd.ActionFlags != "" {
+		terraformCmd += " " + cmd.ActionFlags
+	}
+
+	flags := framework.DefaultCmdFlags()
+	flags.PrintMessage = false
+
+	// Notify user about the action
+	framework.Info("Executing terraform apply")
+	framework.Info("This will affect infrastructure resources.")
 
 	result := framework.RunCmd(
 		terraformCmd,
 		"Applying terraform changes",
-		framework.DefaultCmdFlags(),
+		flags,
+		"Terraform apply failed",
+	)
+
+	if !result.Success {
+		return fmt.Errorf("terraform apply failed")
+	}
+
+	return nil
+}
+
+func (m *Manager) terraformApplyPlan(cmd *Command, paths *Paths) error {
+	// Apply using the plan file
+	terraformCmd := fmt.Sprintf("terraform apply \"%s\"", paths.PlanFile)
+	if cmd.ActionFlags != "" {
+		terraformCmd += " " + cmd.ActionFlags
+	}
+
+	flags := framework.DefaultCmdFlags()
+	flags.PrintMessage = false
+
+	// Notify user about the action
+	framework.Info("Executing terraform apply")
+	framework.Info("This will affect infrastructure resources.")
+
+	result := framework.RunCmd(
+		terraformCmd,
+		"Applying terraform changes",
+		flags,
 		"Terraform apply failed",
 	)
 
@@ -396,14 +410,27 @@ func (m *Manager) terraformApply(cmd *Command, paths *Paths) error {
 
 func (m *Manager) terraformDestroy(cmd *Command, paths *Paths) error {
 	terraformCmd := fmt.Sprintf("terraform destroy -var-file=\"%s\"", paths.VarFile)
+
+	// Add extra arguments in case we're running in "unattended" mode
+	if m.detectExecMode() == "unattended" {
+		terraformCmd += " -auto-approve"
+	}
+
 	if cmd.ActionFlags != "" {
 		terraformCmd += " " + cmd.ActionFlags
 	}
 
+	flags := framework.DefaultCmdFlags()
+	flags.PrintMessage = false
+
+	// Notify user about the action
+	framework.Info("Executing terraform destroy")
+	framework.Info("This will DESTROY infrastructure resources.")
+
 	result := framework.RunCmd(
 		terraformCmd,
 		"Destroying terraform resources",
-		framework.DefaultCmdFlags(),
+		flags,
 		"Terraform destroy failed",
 	)
 
@@ -436,14 +463,27 @@ func (m *Manager) terraformOutput(cmd *Command, paths *Paths) error {
 
 func (m *Manager) terraformImport(cmd *Command, paths *Paths) error {
 	terraformCmd := fmt.Sprintf("terraform import -var-file=\"%s\"", paths.VarFile)
+
+	// Add extra arguments in case we're running in "unattended" mode
+	if m.detectExecMode() == "unattended" {
+		terraformCmd += " -input=false -auto-approve"
+	}
+
 	if cmd.ActionFlags != "" {
 		terraformCmd += " " + cmd.ActionFlags
 	}
 
+	flags := framework.DefaultCmdFlags()
+	flags.PrintMessage = false
+
+	// Notify user about the action
+	framework.Info("Executing terraform import")
+	framework.Info("This will affect infrastructure resources.")
+
 	result := framework.RunCmd(
 		terraformCmd,
 		"Importing terraform resource",
-		framework.DefaultCmdFlags(),
+		flags,
 		"Terraform import failed",
 	)
 
@@ -599,6 +639,66 @@ func (m *Manager) terraformShow(cmd *Command, paths *Paths) error {
 
 	if !result.Success {
 		return fmt.Errorf("terraform show failed")
+	}
+
+	return nil
+}
+
+func (m *Manager) terraformGet(cmd *Command, paths *Paths) error {
+	terraformCmd := "terraform get"
+	if cmd.ActionFlags != "" {
+		terraformCmd += " " + cmd.ActionFlags
+	}
+
+	result := framework.RunCmd(
+		terraformCmd,
+		"Getting terraform modules",
+		framework.DefaultCmdFlags(),
+		"Terraform get failed",
+	)
+
+	if !result.Success {
+		return fmt.Errorf("terraform get failed")
+	}
+
+	return nil
+}
+
+func (m *Manager) terraformWorkspace(cmd *Command, paths *Paths) error {
+	terraformCmd := "terraform workspace"
+	if cmd.ActionFlags != "" {
+		terraformCmd += " " + cmd.ActionFlags
+	}
+
+	result := framework.RunCmd(
+		terraformCmd,
+		"Managing terraform workspace",
+		framework.DefaultCmdFlags(),
+		"Terraform workspace command failed",
+	)
+
+	if !result.Success {
+		return fmt.Errorf("terraform workspace command failed")
+	}
+
+	return nil
+}
+
+func (m *Manager) terraformProviders(cmd *Command, paths *Paths) error {
+	terraformCmd := "terraform providers"
+	if cmd.ActionFlags != "" {
+		terraformCmd += " " + cmd.ActionFlags
+	}
+
+	result := framework.RunCmd(
+		terraformCmd,
+		"Managing terraform providers",
+		framework.DefaultCmdFlags(),
+		"Terraform providers command failed",
+	)
+
+	if !result.Success {
+		return fmt.Errorf("terraform providers command failed")
 	}
 
 	return nil

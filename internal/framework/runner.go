@@ -110,25 +110,17 @@ func execSystemCommand(command string, flags *CmdFlags) *CmdResult {
 	// Debug the command being executed
 	Debug(fmt.Sprintf("Executing command: %s", command))
 
-	// For shell commands like test, we need to use sh -c to handle quotes properly
-	var cmd *exec.Cmd
-	if strings.Contains(command, "test ") || strings.Contains(command, "\"") {
-		// Use shell for commands with quotes or test
-		cmd = exec.Command("sh", "-c", command)
-		Debug(fmt.Sprintf("Using shell: sh -c '%s'", command))
-	} else {
-		// Parse command into parts for simple commands
-		parts := strings.Fields(command)
-		if len(parts) == 0 {
-			return &CmdResult{
-				ExitCode: 1,
-				Success:  false,
-				Error:    "empty command",
-			}
+	// Always use shell execution for consistent quote and escape handling
+	if strings.TrimSpace(command) == "" {
+		return &CmdResult{
+			ExitCode: 1,
+			Success:  false,
+			Error:    "empty command",
 		}
-		cmd = exec.Command(parts[0], parts[1:]...)
-		Debug(fmt.Sprintf("Command parts: %v", parts))
 	}
+
+	cmd := exec.Command("sh", "-c", command)
+	Debug(fmt.Sprintf("Using shell: sh -c '%s'", command))
 
 	var output strings.Builder
 	var errorOutput strings.Builder
@@ -392,11 +384,28 @@ func parseStatus(message string, result *CmdResult, flags *CmdFlags, failMessage
 	}
 
 	// Format the message with proper spacing (similar to bash version)
-	messageLength := 99
-	format := fmt.Sprintf("%s %-*s %s",
-		AddEmphasisGray(fmt.Sprintf("[%s]", GetEntrypointScript())),
-		messageLength,
+	// Calculate padding based on visual length (excluding ANSI codes)
+	entrypoint := fmt.Sprintf("[%s]", GetEntrypointScript())
+	entrypointWithColor := AddEmphasisGray(entrypoint)
+
+	// Calculate the actual visual width needed
+	messageVisualLength := getVisualLength(message)
+	entrypointVisualLength := getVisualLength(entrypoint) // Use uncolored version for length
+	statusVisualLength := 5                               // "[ ✓ ]" or "[ ✗ ]"
+
+	// Total target width minus the parts we know
+	totalWidth := 120
+	paddingWidth := totalWidth - entrypointVisualLength - 1 - messageVisualLength - 1 - statusVisualLength
+
+	// Ensure minimum padding
+	if paddingWidth < 1 {
+		paddingWidth = 1
+	}
+
+	format := fmt.Sprintf("%s %s%*s %s",
+		entrypointWithColor,
 		message,
+		paddingWidth, "",
 		statusIndicator)
 
 	if flags.PrintOutcome && outcomeMessage != "" {

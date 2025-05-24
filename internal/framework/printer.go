@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 )
 
 // Color constants for ANSI escape codes
@@ -70,4 +71,15 @@ func Debug(message string) {
 		// For simplicity, we'll print to stderr for now
 		fmt.Fprintf(os.Stderr, "[DEBUG] %s\n", message)
 	}
+}
+
+// stripAnsiCodes removes ANSI escape sequences from a string
+func stripAnsiCodes(str string) string {
+	ansiRegex := regexp.MustCompile(`\x1b\[[0-9;]*m`)
+	return ansiRegex.ReplaceAllString(str, "")
+}
+
+// getVisualLength returns the visual length of a string (excluding ANSI codes)
+func getVisualLength(str string) int {
+	return len(stripAnsiCodes(str))
 }
