@@ -55,13 +55,13 @@ func GetEntrypointScript() string {
 // Info prints an info message with consistent formatting
 func Info(message string) {
 	format := AddEmphasisGray(fmt.Sprintf("[%s]", GetEntrypointScript())) + " %s\n"
-	fmt.Printf(format, message)
+	fmt.Fprintf(os.Stderr, format, message)
 }
 
 // Error prints an error message with consistent formatting
 func Error(message string) {
 	format := AddEmphasisRed(fmt.Sprintf("[%s]", GetEntrypointScript())) + " %s\n"
-	fmt.Printf(format, message)
+	fmt.Fprintf(os.Stderr, format, message)
 }
 
 // Debug prints a debug message (only if debug is enabled)
