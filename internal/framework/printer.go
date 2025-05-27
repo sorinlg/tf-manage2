@@ -71,9 +71,11 @@ func Debug(message string) {
 	}
 }
 
+// Precompiled regex for removing ANSI escape sequences
+var ansiRegex = regexp.MustCompile(`\x1b\[[0-9;]*m`)
+
 // stripAnsiCodes removes ANSI escape sequences from a string
 func stripAnsiCodes(str string) string {
-	ansiRegex := regexp.MustCompile(`\x1b\[[0-9;]*m`)
 	return ansiRegex.ReplaceAllString(str, "")
 }
 
