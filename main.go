@@ -1,15 +1,15 @@
 package main
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/sorinlg/tf-manage2/internal/cli"
+	"github.com/sorinlg/tf-manage2/internal/framework"
 )
 
 func main() {
 	if err := cli.Execute(); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		framework.Error(err.Error())
 		os.Exit(1)
 	}
 }
