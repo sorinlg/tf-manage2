@@ -74,5 +74,6 @@ func parseCommand(args []string) (*terraform.Command, error) {
 }
 
 func showUsage() error {
-	return fmt.Errorf("Usage: tf <product> <module> <env> <module_instance> <action> [workspace]")
+	binaryName := os.Args[0]
+	return fmt.Errorf("Usage: %s <product> <module> <env> <module_instance> <action> [workspace]", binaryName)
 }
