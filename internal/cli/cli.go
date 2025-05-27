@@ -74,6 +74,5 @@ func parseCommand(args []string) (*terraform.Command, error) {
 }
 
 func showUsage() error {
-	fmt.Fprintf(os.Stderr, "[tf] Usage: tf <product> <module> <env> <module_instance> <action> [workspace]\n")
-	return fmt.Errorf("invalid usage")
+	return fmt.Errorf("Usage: tf <product> <module> <env> <module_instance> <action> [workspace]")
 }

@@ -67,8 +67,6 @@ func Error(message string) {
 // Debug prints a debug message (only if debug is enabled)
 func Debug(message string) {
 	if os.Getenv("TFM_DEBUG") != "" {
-		// In the original, this goes to /tmp/tf.log
-		// For simplicity, we'll print to stderr for now
 		fmt.Fprintf(os.Stderr, "[DEBUG] %s\n", message)
 	}
 }
