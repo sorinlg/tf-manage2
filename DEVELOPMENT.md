@@ -27,6 +27,28 @@
    go run ../../ project1 sample_module dev instance_x apply
    ```
 
+### Release management
+- Use [GoReleaser](https://goreleaser.com/) for building and releasing binaries.
+- Follow the [official guide](https://goreleaser.com/install/) for installation instructions.
+
+#### Initial setup
+```bash
+# Install GoReleaser
+brew install goreleaser/tap/goreleaser
+brew install goreleaser
+
+# Initialize GoReleaser in the project
+goreleaser init
+# This creates a .goreleaser.yml file with default settings
+
+# Local testing
+goreleaser release --snapshot --clean
+
+# Release
+export GITHUB_TOKEN="$(gh auth token)" # Ensure you have GitHub CLI authenticated
+goreleaser release --clean
+```
+
 ## 🏗️ Project Structure
 
 ```
