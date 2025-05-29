@@ -28,25 +28,51 @@
    ```
 
 ### Release management
-- Use [GoReleaser](https://goreleaser.com/) for building and releasing binaries.
-- Follow the [official guide](https://goreleaser.com/install/) for installation instructions.
+- Use [svu](https://github.com/caarlos0/svu) for semantic versioning based on conventional commits
+- Use [GoReleaser](https://goreleaser.com/) for building and releasing binaries
+- Follow the [official guide](https://goreleaser.com/install/) for installation instructions
 
 #### Initial setup
 ```bash
+# Install svu (Go-based semantic versioning)
+go install github.com/caarlos0/svu@latest
+
 # Install GoReleaser
 brew install goreleaser/tap/goreleaser
 brew install goreleaser
 
 # Initialize GoReleaser in the project
 goreleaser init
-# This creates a .goreleaser.yml file with default settings
 
-# Local testing
+# Check current version and what would be next
+svu current
+svu next
+
+# Local testing with GoReleaser
 goreleaser release --snapshot --clean
 
-# Release
-export GITHUB_TOKEN="$(gh auth token)" # Ensure you have GitHub CLI authenticated
+# Release (done automatically by GitHub Actions)
+export GITHUB_TOKEN="$(gh auth token)"
+git tag $(svu next)
+git push origin $(svu next)
 goreleaser release --clean
+```
+
+#### svu Usage Examples
+```bash
+# Check current version
+svu current
+
+# Get next version based on conventional commits
+svu next
+
+# Force specific version types
+svu major   # Force major version bump
+svu minor   # Force minor version bump
+svu patch   # Force patch version bump
+
+# Check what commits would trigger version bump
+git log $(svu current)..HEAD --oneline
 ```
 
 ## 🏗️ Project Structure

@@ -1,0 +1,76 @@
+name: Release
+
+permissions:
+  contents: write # Required to create and push tags
+
+on:
+  push:
+    branches: [main, develop]
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Install svu
+        run: go install github.com/caarlos0/svu@latest
+
+      - name: Determine next version
+        id: version
+        run: |
+          CURRENT_VERSION=$(svu current)
+
+          if [ "${{ github.ref_name }}" = "main" ]; then
+            # Stable release from main branch
+            NEXT_VERSION=$(svu next)
+          else
+            # Pre-release from develop branch
+            NEXT_VERSION=$(svu prerelease --pre-release=rc)
+          fi
+
+          echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          echo "next_version=$NEXT_VERSION" >> $GITHUB_OUTPUT
+
+          # Check if we should create a release
+          if [ "$CURRENT_VERSION" != "$NEXT_VERSION" ] && [ -n "$NEXT_VERSION" ]; then
+            echo "new_release_published=true" >> $GITHUB_OUTPUT
+            echo "New version to be released: $NEXT_VERSION"
+          else
+            echo "new_release_published=false" >> $GITHUB_OUTPUT
+            echo "No new version to release"
+          fi
+
+      - name: Create and push tag
+        if: steps.version.outputs.new_release_published == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Set force flag for develop branch only
+          FORCE_FLAG=""
+          if [ "${{ github.ref_name }}" = "develop" ]; then
+            FORCE_FLAG="-f"
+          fi
+
+          git tag $FORCE_FLAG "${{ steps.version.outputs.next_version }}" -m "Release ${{ steps.version.outputs.next_version }}"
+          git push $FORCE_FLAG origin "${{ steps.version.outputs.next_version }}"
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v5
+        if: steps.version.outputs.new_release_published == 'true'
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -173,10 +173,29 @@ export __tfm_module_rel_path='terraform/modules'
 
 ## 📥 Installation
 
+### Homebrew (macOS/Linux)
+```bash
+# Add the tap
+brew tap sorinlg/tap
+
+# Install tf-manage2
+brew install tf-manage2
+
+# Verify installation
+tf --version
+```
+
 ### Download Binary
 ```bash
-# Download latest release
-curl -L https://github.com/sorinlg/tf-manage2/releases/latest/download/tf-linux -o tf
+# Download latest release for your platform
+curl -L https://github.com/sorinlg/tf-manage2/releases/latest/download/tf-manage2_Linux_x86_64.tar.gz -o tf-manage2.tar.gz
+tar xzf tf-manage2.tar.gz
+chmod +x tf
+sudo mv tf /usr/local/bin/
+
+# Or for macOS ARM64
+curl -L https://github.com/sorinlg/tf-manage2/releases/latest/download/tf-manage2_Darwin_arm64.tar.gz -o tf-manage2.tar.gz
+tar xzf tf-manage2.tar.gz
 chmod +x tf
 sudo mv tf /usr/local/bin/
 ```
@@ -192,6 +211,7 @@ sudo mv tf /usr/local/bin/
 ### Verify Installation
 ```bash
 tf --help
+tf --version
 ```
 
 ## 🔧 Development
