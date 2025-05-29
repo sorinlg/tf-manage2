@@ -6,7 +6,8 @@ permissions:
 on:
   push:
     branches: [main, develop]
-
+  pull_request_target:
+    branches: [main]
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -16,6 +17,9 @@ jobs:
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: ☑️ PR Validation
+        uses: sorinlg/actions/pre-commit@main
 
       - name: Setup Go
         uses: actions/setup-go@v5
