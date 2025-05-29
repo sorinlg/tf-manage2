@@ -19,6 +19,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: ☑️ PR Validation
+        if: github.event_name == 'pull_request_target'
         uses: sorinlg/actions/pre-commit@main
 
       - name: Setup Go
