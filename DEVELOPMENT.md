@@ -66,6 +66,9 @@ svu current
 # Get next version based on conventional commits
 svu next
 
+# Get next pre-release version (for develop branch)
+svu prerelease --pre-release=rc
+
 # Force specific version types
 svu major   # Force major version bump
 svu minor   # Force minor version bump
@@ -73,6 +76,30 @@ svu patch   # Force patch version bump
 
 # Check what commits would trigger version bump
 git log $(svu current)..HEAD --oneline
+```
+
+#### Commit Message Strategy
+
+**For develop branch** (increments only RC number):
+- Use non-bumping commit types to avoid changing base version
+- `chore:` - maintenance tasks, dependency updates
+- `docs:` - documentation changes
+- `style:` - code formatting, whitespace
+- `refactor:` - code refactoring without functionality changes
+- `test:` - adding or updating tests
+- `ci:` - CI/CD configuration changes
+
+**For main branch** (proper semantic versioning):
+- `feat:` - new features (minor version bump)
+- `fix:` - bug fixes (patch version bump)
+- `BREAKING CHANGE:` - breaking changes (major version bump)
+
+**Example develop workflow**:
+```bash
+git commit -m "chore: update dependencies"
+git commit -m "refactor: improve error handling"
+git commit -m "test: add integration tests"
+# Result: v0.1.0 → v0.1.1-rc.0 → v0.1.1-rc.1 → v0.1.1-rc.2
 ```
 
 ## 🏗️ Project Structure

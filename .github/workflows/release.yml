@@ -56,14 +56,8 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Set force flag for develop branch only
-          FORCE_FLAG=""
-          if [ "${{ github.ref_name }}" = "develop" ]; then
-            FORCE_FLAG="-f"
-          fi
-
-          git tag $FORCE_FLAG "${{ steps.version.outputs.next_version }}" -m "Release ${{ steps.version.outputs.next_version }}"
-          git push $FORCE_FLAG origin "${{ steps.version.outputs.next_version }}"
+          git tag "${{ steps.version.outputs.next_version }}" -m "Release ${{ steps.version.outputs.next_version }}"
+          git push origin "${{ steps.version.outputs.next_version }}"
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v5
