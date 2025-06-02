@@ -1,10 +1,12 @@
 package cli
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/sorinlg/tf-manage2/internal/config"
 )
@@ -202,25 +204,49 @@ func captureOutput(t *testing.T, fn func()) string {
 	// Replace stdout with pipe writer
 	os.Stdout = w
 
-	// Channel to capture output
+	// Channel to capture output and errors
 	outputChan := make(chan string, 1)
+	errChan := make(chan error, 1)
 
 	// Start goroutine to read from pipe
 	go func() {
 		defer r.Close()
+
+		var output strings.Builder
 		buf := make([]byte, 1024)
-		n, _ := r.Read(buf)
-		outputChan <- string(buf[:n])
+
+		for {
+			n, err := r.Read(buf)
+			if n > 0 {
+				output.Write(buf[:n])
+			}
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
+				errChan <- err
+				return
+			}
+		}
+		outputChan <- output.String()
 	}()
 
 	// Execute function
 	fn()
 
-	// Close writer and restore stdout
+	// Close writer to signal EOF
 	w.Close()
 	os.Stdout = originalStdout
 
-	// Get captured output
-	output := <-outputChan
-	return output
+	// Wait for output or error with timeout
+	select {
+	case output := <-outputChan:
+		return output
+	case err := <-errChan:
+		t.Fatalf("Error reading captured output: %v", err)
+	case <-time.After(5 * time.Second):
+		t.Fatalf("Timeout waiting for captured output")
+	}
+
+	return ""
 }
