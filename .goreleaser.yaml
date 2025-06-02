@@ -91,7 +91,7 @@ brews:
       system "#{bin}/tf", "--help"
     install: |
       bin.install "tf"
-      bash_completion.install "bin/tf_complete.sh" => "tf_complete"
+      bash_completion.install "bin/tf_complete.sh" => "tf"
 
 snapshot:
   version_template: "{{ incpatch .Version }}-next"
