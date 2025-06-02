@@ -53,6 +53,11 @@ func Execute() error {
 		return showHelp()
 	}
 
+	// Handle completion commands
+	if len(args) >= 1 && args[0] == "__complete" {
+		return handleCompletion(args[1:])
+	}
+
 	// Load configuration
 	cfg, err := config.LoadConfig()
 	if err != nil {
@@ -145,4 +150,48 @@ ENVIRONMENT VARIABLES:
 For more information, see: https://github.com/sorinlg/tf-manage2
 `)
 	return nil
+}
+
+// handleCompletion handles bash completion requests
+func handleCompletion(args []string) error {
+	if len(args) == 0 {
+		return fmt.Errorf("completion command required")
+	}
+
+	// Try to load configuration
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		// If config fails to load, we're likely not in a tf-manage project
+		// Don't output completion suggestions but also don't error
+		// The bash completion script will handle this gracefully
+		return nil
+	}
+
+	// Create completion handler
+	completion := NewCompletion(cfg)
+
+	switch args[0] {
+	case "projects":
+		return completion.SuggestProjects()
+	case "modules":
+		return completion.SuggestModules()
+	case "environments":
+		if len(args) < 3 {
+			return nil // Silently fail if not enough args
+		}
+		return completion.SuggestEnvironments(args[1], args[2])
+	case "configs":
+		if len(args) < 4 {
+			return nil // Silently fail if not enough args
+		}
+		return completion.SuggestConfigs(args[1], args[2], args[3])
+	case "actions":
+		return completion.SuggestActions()
+	case "workspace":
+		return completion.SuggestWorkspace()
+	case "repo":
+		return completion.SuggestRepo()
+	default:
+		return nil // Silently fail for unknown commands
+	}
 }

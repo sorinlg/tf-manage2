@@ -802,7 +802,7 @@ func (m *Manager) terraformProviders(cmd *Command, paths *Paths) error {
 // generateTfmExtraVars creates the terraform variable flags for tf-manage integration
 // This matches the bash version's _TFM_EXTRA_VARS functionality
 func (m *Manager) generateTfmExtraVars(cmd *Command) string {
-	return fmt.Sprintf("-var 'tfm_product=%s' -var 'tfm_repo=%s' -var 'tfm_module=%s' -var 'tfm_env=%s' -var 'tfm_module_instance=%s'",
+	return fmt.Sprintf("-var 'tfm_project=%s' -var 'tfm_repo=%s' -var 'tfm_module=%s' -var 'tfm_env=%s' -var 'tfm_module_instance=%s'",
 		cmd.Product,
 		m.config.RepoName,
 		cmd.Module,

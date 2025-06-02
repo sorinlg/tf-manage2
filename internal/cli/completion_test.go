@@ -1,0 +1,226 @@
+package cli
+
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/sorinlg/tf-manage2/internal/config"
+)
+
+// TestCompletion tests the completion functionality
+func TestCompletion(t *testing.T) {
+	// Create a temporary test directory structure
+	tmpDir := t.TempDir()
+
+	// Create test directory structure
+	testDirs := []string{
+		"terraform/environments/project1/dev/sample_module",
+		"terraform/environments/project1/staging/sample_module",
+		"terraform/environments/project2/prod/another_module",
+		"terraform/modules/sample_module",
+		"terraform/modules/another_module",
+	}
+
+	for _, dir := range testDirs {
+		err := os.MkdirAll(filepath.Join(tmpDir, dir), 0755)
+		if err != nil {
+			t.Fatalf("Failed to create test directory %s: %v", dir, err)
+		}
+	}
+
+	// Create test config files
+	testFiles := []string{
+		"terraform/environments/project1/dev/sample_module/instance_x.tfvars",
+		"terraform/environments/project1/dev/sample_module/instance_y.tfvars",
+		"terraform/environments/project1/staging/sample_module/staging_instance.tfvars",
+		"terraform/environments/project2/prod/another_module/prod_instance.tfvars",
+	}
+
+	for _, file := range testFiles {
+		filePath := filepath.Join(tmpDir, file)
+		f, err := os.Create(filePath)
+		if err != nil {
+			t.Fatalf("Failed to create test file %s: %v", file, err)
+		}
+		f.Close()
+	}
+
+	// Create .tfm.conf
+	confContent := `#!/bin/bash
+export __tfm_repo_name='test-repo'
+export __tfm_env_rel_path='terraform/environments'
+export __tfm_module_rel_path='terraform/modules'
+`
+	confPath := filepath.Join(tmpDir, ".tfm.conf")
+	err := os.WriteFile(confPath, []byte(confContent), 0644)
+	if err != nil {
+		t.Fatalf("Failed to create .tfm.conf: %v", err)
+	}
+
+	// Create .git directory to simulate git repo
+	gitDir := filepath.Join(tmpDir, ".git")
+	err = os.MkdirAll(gitDir, 0755)
+	if err != nil {
+		t.Fatalf("Failed to create .git directory: %v", err)
+	}
+
+	// Change to test directory
+	originalDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get current directory: %v", err)
+	}
+	defer func() {
+		err := os.Chdir(originalDir)
+		if err != nil {
+			t.Errorf("Failed to restore original directory: %v", err)
+		}
+	}()
+
+	err = os.Chdir(tmpDir)
+	if err != nil {
+		t.Fatalf("Failed to change to test directory: %v", err)
+	}
+
+	// Load config
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		t.Fatalf("Failed to load config: %v", err)
+	}
+
+	completion := NewCompletion(cfg)
+
+	// Test products completion
+	t.Run("SuggestProjects", func(t *testing.T) {
+		// Capture stdout
+		output := captureOutput(t, func() {
+			err := completion.SuggestProjects()
+			if err != nil {
+				t.Errorf("SuggestProducts failed: %v", err)
+			}
+		})
+
+		expected := []string{"project1", "project2"}
+		for _, exp := range expected {
+			if !strings.Contains(output, exp) {
+				t.Errorf("Expected product %s not found in output: %s", exp, output)
+			}
+		}
+	})
+
+	// Test modules completion
+	t.Run("SuggestModules", func(t *testing.T) {
+		output := captureOutput(t, func() {
+			err := completion.SuggestModules()
+			if err != nil {
+				t.Errorf("SuggestModules failed: %v", err)
+			}
+		})
+
+		expected := []string{"sample_module", "another_module"}
+		for _, exp := range expected {
+			if !strings.Contains(output, exp) {
+				t.Errorf("Expected module %s not found in output: %s", exp, output)
+			}
+		}
+	})
+
+	// Test environments completion
+	t.Run("SuggestEnvironments", func(t *testing.T) {
+		output := captureOutput(t, func() {
+			err := completion.SuggestEnvironments("project1", "sample_module")
+			if err != nil {
+				t.Errorf("SuggestEnvironments failed: %v", err)
+			}
+		})
+
+		expected := []string{"dev", "staging"}
+		for _, exp := range expected {
+			if !strings.Contains(output, exp) {
+				t.Errorf("Expected environment %s not found in output: %s", exp, output)
+			}
+		}
+
+		// Should not contain prod since project1 doesn't have prod/sample_module
+		if strings.Contains(output, "prod") {
+			t.Errorf("Unexpected environment 'prod' found in output: %s", output)
+		}
+	})
+
+	// Test configs completion
+	t.Run("SuggestConfigs", func(t *testing.T) {
+		output := captureOutput(t, func() {
+			err := completion.SuggestConfigs("project1", "dev", "sample_module")
+			if err != nil {
+				t.Errorf("SuggestConfigs failed: %v", err)
+			}
+		})
+
+		expected := []string{"instance_x", "instance_y"}
+		for _, exp := range expected {
+			if !strings.Contains(output, exp) {
+				t.Errorf("Expected config %s not found in output: %s", exp, output)
+			}
+		}
+	})
+
+	// Test actions completion
+	t.Run("SuggestActions", func(t *testing.T) {
+		output := captureOutput(t, func() {
+			err := completion.SuggestActions()
+			if err != nil {
+				t.Errorf("SuggestActions failed: %v", err)
+			}
+		})
+
+		expected := []string{"init", "plan", "apply", "destroy"}
+		for _, exp := range expected {
+			if !strings.Contains(output, exp) {
+				t.Errorf("Expected action %s not found in output: %s", exp, output)
+			}
+		}
+	})
+}
+
+// captureOutput captures stdout during function execution
+func captureOutput(t *testing.T, fn func()) string {
+	t.Helper()
+
+	// Create a pipe to capture output
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("Failed to create pipe: %v", err)
+	}
+
+	// Save original stdout
+	originalStdout := os.Stdout
+	defer func() {
+		os.Stdout = originalStdout
+	}()
+
+	// Replace stdout with pipe writer
+	os.Stdout = w
+
+	// Channel to capture output
+	outputChan := make(chan string, 1)
+
+	// Start goroutine to read from pipe
+	go func() {
+		defer r.Close()
+		buf := make([]byte, 1024)
+		n, _ := r.Read(buf)
+		outputChan <- string(buf[:n])
+	}()
+
+	// Execute function
+	fn()
+
+	// Close writer and restore stdout
+	w.Close()
+	os.Stdout = originalStdout
+
+	// Get captured output
+	output := <-outputChan
+	return output
+}

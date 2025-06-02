@@ -6,7 +6,7 @@ A lean Terraform workspace manager with standardized folder structure and simpli
 
 tf-manage2 provides:
 - **Standard folder structure**: Organized `terraform/environments/{project}/{env}/` and `terraform/modules/` layout
-- **Workspace naming**: Automatic `{product}.{repo}.{module}.{env}.{module_instance}` convention
+- **Workspace naming**: Automatic `{project}.{repo}.{module}.{env}.{module_instance}` convention
 - **Simplified CLI**: Single command interface to consume folder structure with built-in validation
 - **Local developer experience**: Interactive mode with prompts and colored output
 - **CI runtime support**: Auto-detects CI environments and enables unattended mode
@@ -39,7 +39,7 @@ sudo mv tf-manage2 /usr/local/bin/
 ## Usage
 
 ```bash
-tf <product> <module> <env> <module_instance> <action> [workspace]
+tf <project> <module> <env> <module_instance> <action> [workspace]
 ```
 
 **Examples:**
