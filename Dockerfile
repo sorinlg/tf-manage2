@@ -59,8 +59,8 @@ ENV PATH="/usr/local/bin:${PATH}"
 # Set working directory
 WORKDIR /workspace
 
-# Run as non-root user (distroless uses user ID 65532 by default)
-USER 65532:65532
+# Run as non-root user
+USER 1001:1001
 
 # Set entrypoint
 ENTRYPOINT ["tf"]
