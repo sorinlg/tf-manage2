@@ -275,11 +275,7 @@ func (m *Manager) isRunningInCI() bool {
 }
 
 func (m *Manager) ensureWorkspace(workspaceName string) error {
-	// Check if workspace exists using the same pattern as bash version
-	// Escape dots in workspace name for regex matching
-	escapedWorkspace := strings.ReplaceAll(workspaceName, ".", "\\.")
-	grepPattern := fmt.Sprintf("%s$", escapedWorkspace)
-
+	// Execute terraform workspace list command directly
 	flags := framework.DefaultCmdFlags()
 	flags.PrintOutput = false
 	flags.PrintMessage = false
@@ -287,13 +283,31 @@ func (m *Manager) ensureWorkspace(workspaceName string) error {
 	flags.PrintOutcome = false
 
 	result := framework.RunCmd(
-		fmt.Sprintf("terraform workspace list | grep '%s'", grepPattern),
+		"terraform workspace list",
 		fmt.Sprintf("Checking workspace %s exists", framework.AddEmphasisBlue(workspaceName)),
 		flags,
 	)
 
+	// Parse the workspace list output
+	workspaceExists := false
+	for _, line := range strings.Split(result.Output, "\n") {
+		// Terraform workspace list format:
+		// '* default' (current workspace has asterisk)
+		// '  workspace1'
+		// '  workspace2'
+		trimmedLine := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmedLine, "*") {
+			trimmedLine = strings.TrimSpace(strings.TrimPrefix(trimmedLine, "*"))
+		}
+
+		if trimmedLine == workspaceName {
+			workspaceExists = true
+			break
+		}
+	}
+
 	// If workspace doesn't exist, create it
-	if !result.Success {
+	if !workspaceExists {
 		// Create new workspace
 		flags = framework.DefaultCmdFlags()
 		flags.PrintMessage = true

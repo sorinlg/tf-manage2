@@ -115,12 +115,55 @@ func RunCmdInteractive(command, message string, failMessage ...string) *CmdResul
 	return RunCmd(command, message, flags, failMessage...)
 }
 
-// execSystemCommand executes the actual system command
+// parseCommand parses a command string into program and arguments
+// This handles basic shell-like parsing including quoted strings
+func parseCommand(cmdStr string) (string, []string) {
+	cmdStr = strings.TrimSpace(cmdStr)
+	if cmdStr == "" {
+		return "", nil
+	}
+
+	var parts []string
+	var current strings.Builder
+	inQuotes := false
+	quoteChar := byte(0)
+
+	for i := 0; i < len(cmdStr); i++ {
+		char := cmdStr[i]
+
+		if !inQuotes && (char == '"' || char == '\'') {
+			inQuotes = true
+			quoteChar = char
+		} else if inQuotes && char == quoteChar {
+			inQuotes = false
+			quoteChar = 0
+		} else if !inQuotes && char == ' ' {
+			if current.Len() > 0 {
+				parts = append(parts, current.String())
+				current.Reset()
+			}
+		} else {
+			current.WriteByte(char)
+		}
+	}
+
+	if current.Len() > 0 {
+		parts = append(parts, current.String())
+	}
+
+	if len(parts) == 0 {
+		return "", nil
+	}
+
+	return parts[0], parts[1:]
+}
+
+// execSystemCommand executes the actual system command directly without a shell
 func execSystemCommand(command string, flags *CmdFlags) *CmdResult {
 	// Debug the command being executed
 	Debug(fmt.Sprintf("Executing command: %s", command))
 
-	// Always use shell execution for consistent quote and escape handling
+	// Check for empty command
 	if strings.TrimSpace(command) == "" {
 		return &CmdResult{
 			ExitCode: 1,
@@ -129,132 +172,120 @@ func execSystemCommand(command string, flags *CmdFlags) *CmdResult {
 		}
 	}
 
-	cmd := exec.Command("sh", "-c", command)
-	Debug(fmt.Sprintf("Using shell: sh -c '%s'", command))
+	// Parse the command into program and arguments
+	program, args := parseCommand(command)
+	Debug(fmt.Sprintf("Parsed command: %s %v", program, args))
 
+	if program == "" {
+		return &CmdResult{
+			ExitCode: 1,
+			Success:  false,
+			Error:    "empty command",
+		}
+	}
+
+	cmd := exec.Command(program, args...)
+	return execCommand(cmd, flags)
+}
+
+// execCommand is the common execution function for both direct and shell commands
+func execCommand(cmd *exec.Cmd, flags *CmdFlags) *CmdResult {
 	var output strings.Builder
 	var errorOutput strings.Builder
 
-	if flags.PrintOutput && flags.DecorateOutput {
-		// If we need to decorate output, we need to capture and process it
-		// However, for interactive commands, we should not use decoration
-		// as it breaks stdin interaction
-		stdout, err := cmd.StdoutPipe()
-		if err != nil {
-			return &CmdResult{
-				ExitCode: 1,
-				Success:  false,
-				Error:    err.Error(),
-			}
+	// Always capture stdout and stderr for internal use
+	stdoutPipe, err := cmd.StdoutPipe()
+	if err != nil {
+		return &CmdResult{
+			ExitCode: 1,
+			Success:  false,
+			Error:    err.Error(),
 		}
+	}
 
-		stderr, err := cmd.StderrPipe()
-		if err != nil {
-			return &CmdResult{
-				ExitCode: 1,
-				Success:  false,
-				Error:    err.Error(),
-			}
+	stderrPipe, err := cmd.StderrPipe()
+	if err != nil {
+		return &CmdResult{
+			ExitCode: 1,
+			Success:  false,
+			Error:    err.Error(),
 		}
+	}
 
-		// Note: stdin is not connected when using pipes for decoration
-		// This means decorated output is incompatible with interactive commands
+	// For interactive commands, we need to connect stdin
+	if !flags.DecorateOutput {
+		cmd.Stdin = os.Stdin
+	}
 
-		if err := cmd.Start(); err != nil {
-			return &CmdResult{
-				ExitCode: 1,
-				Success:  false,
-				Error:    err.Error(),
-			}
+	// Start the command
+	if err := cmd.Start(); err != nil {
+		return &CmdResult{
+			ExitCode: 1,
+			Success:  false,
+			Error:    err.Error(),
 		}
+	}
 
-		// Read and decorate stdout
-		go func() {
-			scanner := bufio.NewScanner(stdout)
-			for scanner.Scan() {
-				line := scanner.Text()
-				output.WriteString(line + "\n")
-				if flags.PrintOutput {
+	// Process stdout
+	go func() {
+		scanner := bufio.NewScanner(stdoutPipe)
+		for scanner.Scan() {
+			line := scanner.Text()
+			output.WriteString(line + "\n")
+			if flags.PrintOutput {
+				if flags.DecorateOutput {
 					decoratedLine := AddEmphasisBlue(fmt.Sprintf("[%s]", "cmd")) + " " + line
 					fmt.Println(decoratedLine)
+				} else {
+					fmt.Println(line)
 				}
 			}
-		}()
+		}
+	}()
 
-		// Read stderr
-		go func() {
-			scanner := bufio.NewScanner(stderr)
-			for scanner.Scan() {
-				line := scanner.Text()
-				errorOutput.WriteString(line + "\n")
-				if flags.PrintOutput {
+	// Process stderr
+	go func() {
+		scanner := bufio.NewScanner(stderrPipe)
+		for scanner.Scan() {
+			line := scanner.Text()
+			errorOutput.WriteString(line + "\n")
+			if flags.PrintOutput {
+				if flags.DecorateOutput {
 					decoratedLine := AddEmphasisRed(fmt.Sprintf("[%s]", "err")) + " " + line
 					fmt.Println(decoratedLine)
+				} else {
+					fmt.Fprintln(os.Stderr, line)
 				}
 			}
-		}()
-
-		err = cmd.Wait()
-
-		exitCode := 0
-		if err != nil {
-			if exitError, ok := err.(*exec.ExitError); ok {
-				exitCode = exitError.ExitCode()
-			} else {
-				exitCode = 1
-			}
 		}
+	}()
 
-		// Check if exit code is valid
-		success := false
-		for _, validCode := range flags.ValidExitCodes {
-			if exitCode == validCode {
-				success = true
-				break
-			}
-		}
+	// Wait for the command to complete
+	err = cmd.Wait()
 
-		return &CmdResult{
-			ExitCode: exitCode,
-			Success:  success,
-			Output:   output.String(),
-			Error:    errorOutput.String(),
+	exitCode := 0
+	if err != nil {
+		if exitError, ok := err.(*exec.ExitError); ok {
+			exitCode = exitError.ExitCode()
+		} else {
+			exitCode = 1
 		}
+	}
 
-	} else {
-		// Standard execution
-		var err error
-		if flags.PrintOutput {
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			cmd.Stdin = os.Stdin // Enable interactive input
+	// Check if exit code is valid
+	success := false
+	for _, validCode := range flags.ValidExitCodes {
+		if exitCode == validCode {
+			success = true
+			break
 		}
-		err = cmd.Run()
+	}
 
-		exitCode := 0
-		if err != nil {
-			if exitError, ok := err.(*exec.ExitError); ok {
-				exitCode = exitError.ExitCode()
-			} else {
-				exitCode = 1
-			}
-		}
-
-		// Check if exit code is valid
-		success := false
-		for _, validCode := range flags.ValidExitCodes {
-			if exitCode == validCode {
-				success = true
-				break
-			}
-		}
-
-		return &CmdResult{
-			ExitCode: exitCode,
-			Success:  success,
-			Output:   output.String(),
-			Error:    errorOutput.String(),
-		}
+	return &CmdResult{
+		ExitCode: exitCode,
+		Success:  success,
+		Output:   output.String(),
+		Error:    errorOutput.String(),
 	}
 }
 
