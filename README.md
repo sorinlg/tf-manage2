@@ -36,6 +36,24 @@ sudo mv tf-manage2 /usr/local/bin/
 ```
 </details>
 
+<details><summary>Bash completion</summary>
+
+After installing tf-manage2, enable bash completion by adding the following to your shell configuration:
+
+```bash
+# Add to ~/.bashrc or ~/.zshrc
+if command -v tf &> /dev/null; then
+  . $(brew --prefix)/etc/bash_completion.d/tf
+fi
+```
+
+Then reload your shell:
+```bash
+source ~/.bashrc  # or ~/.zshrc for zsh users
+```
+
+</details>
+
 ## Usage
 
 ```bash
