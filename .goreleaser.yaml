@@ -72,6 +72,7 @@ brews:
       owner: sorinlg
       name: homebrew-tap
       branch: main
+      token: "{{ .Env.HOMEBREW_GITHUB_API_TOKEN }}"
     url_template: "https://github.com/sorinlg/tf-manage2/releases/download/{{ .Tag }}/{{ .ArtifactName }}"
     download_strategy: CurlDownloadStrategy
     commit_author:
