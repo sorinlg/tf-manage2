@@ -38,6 +38,7 @@ archives:
     files:
       - README.md
       - LICENSE
+      - bin/tf_complete.sh
 
 release:
   github:
