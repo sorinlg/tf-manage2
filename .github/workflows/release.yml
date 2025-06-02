@@ -1,75 +1,28 @@
 name: Release
 
-permissions:
-  contents: write # Required to create and push tags
-
 on:
   push:
-    branches: [main, develop]
-  pull_request_target:
-    branches: [main]
+    tags:
+      - "v*"
+
 jobs:
-  release:
+  goreleaser:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: ☑️ PR Validation
-        if: github.event_name == 'pull_request_target'
-        uses: sorinlg/actions/pre-commit@main
-
-      - name: Setup Go
+      - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
-
-      - name: Install svu
-        run: go install github.com/caarlos0/svu@latest
-
-      - name: Determine next version
-        id: version
-        run: |
-          CURRENT_VERSION=$(svu current)
-
-          if [ "${{ github.ref_name }}" = "main" ]; then
-            # Stable release from main branch
-            NEXT_VERSION=$(svu next)
-          else
-            # Pre-release from develop branch
-            NEXT_VERSION=$(svu prerelease --pre-release=rc)
-          fi
-
-          echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
-          echo "next_version=$NEXT_VERSION" >> $GITHUB_OUTPUT
-
-          # Check if we should create a release
-          if [ "$CURRENT_VERSION" != "$NEXT_VERSION" ] && [ -n "$NEXT_VERSION" ]; then
-            echo "new_release_published=true" >> $GITHUB_OUTPUT
-            echo "New version to be released: $NEXT_VERSION"
-          else
-            echo "new_release_published=false" >> $GITHUB_OUTPUT
-            echo "No new version to release"
-          fi
-
-      - name: Create and push tag
-        if: steps.version.outputs.new_release_published == 'true'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          git tag "${{ steps.version.outputs.next_version }}" -m "Release ${{ steps.version.outputs.next_version }}"
-          git push origin "${{ steps.version.outputs.next_version }}"
+          go-version: stable
 
       - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v5
-        if: steps.version.outputs.new_release_published == 'true'
+        uses: goreleaser/goreleaser-action@v6
         with:
-          distribution: goreleaser
-          version: "~> v2"
+          version: latest
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
