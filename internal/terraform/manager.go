@@ -10,6 +10,24 @@ import (
 	"github.com/sorinlg/tf-manage2/internal/framework"
 )
 
+// ExitCodeError represents an error that carries a specific exit code
+type ExitCodeError struct {
+	Message  string
+	ExitCode int
+}
+
+func (e *ExitCodeError) Error() string {
+	return e.Message
+}
+
+// NewExitCodeError creates a new error with the specified exit code
+func NewExitCodeError(message string, exitCode int) *ExitCodeError {
+	return &ExitCodeError{
+		Message:  message,
+		ExitCode: exitCode,
+	}
+}
+
 // Manager handles terraform operations with tf-manage conventions
 type Manager struct {
 	config *config.Config
@@ -387,11 +405,7 @@ func (m *Manager) terraformInit(cmd *Command, paths *Paths) error {
 		"Terraform init failed",
 	)
 
-	if !result.Success {
-		return fmt.Errorf("terraform init failed")
-	}
-
-	return nil
+	return NewExitCodeError("command failed", result.ExitCode)
 }
 
 func (m *Manager) terraformPlan(cmd *Command, paths *Paths) error {
@@ -408,11 +422,7 @@ func (m *Manager) terraformPlan(cmd *Command, paths *Paths) error {
 		"Terraform plan failed",
 	)
 
-	if !result.Success {
-		return fmt.Errorf("terraform plan failed")
-	}
-
-	return nil
+	return NewExitCodeError("command failed", result.ExitCode)
 }
 
 func (m *Manager) terraformApply(cmd *Command, paths *Paths) error {
@@ -455,11 +465,7 @@ func (m *Manager) terraformApply(cmd *Command, paths *Paths) error {
 		)
 	}
 
-	if !result.Success {
-		return fmt.Errorf("terraform apply failed")
-	}
-
-	return nil
+	return NewExitCodeError("command failed", result.ExitCode)
 }
 
 func (m *Manager) terraformApplyPlan(cmd *Command, paths *Paths) error {
@@ -483,11 +489,7 @@ func (m *Manager) terraformApplyPlan(cmd *Command, paths *Paths) error {
 		"Terraform apply failed",
 	)
 
-	if !result.Success {
-		return fmt.Errorf("terraform apply failed")
-	}
-
-	return nil
+	return NewExitCodeError("command failed", result.ExitCode)
 }
 
 func (m *Manager) terraformDestroy(cmd *Command, paths *Paths) error {
@@ -529,11 +531,7 @@ func (m *Manager) terraformDestroy(cmd *Command, paths *Paths) error {
 		)
 	}
 
-	if !result.Success {
-		return fmt.Errorf("terraform destroy failed")
-	}
-
-	return nil
+	return NewExitCodeError("command failed", result.ExitCode)
 }
 
 func (m *Manager) terraformOutput(cmd *Command, paths *Paths) error {
@@ -549,11 +547,7 @@ func (m *Manager) terraformOutput(cmd *Command, paths *Paths) error {
 		"Terraform output failed",
 	)
 
-	if !result.Success {
-		return fmt.Errorf("terraform output failed")
-	}
-
-	return nil
+	return NewExitCodeError("command failed", result.ExitCode)
 }
 
 func (m *Manager) terraformImport(cmd *Command, paths *Paths) error {
@@ -595,11 +589,7 @@ func (m *Manager) terraformImport(cmd *Command, paths *Paths) error {
 		)
 	}
 
-	if !result.Success {
-		return fmt.Errorf("terraform import failed")
-	}
-
-	return nil
+	return NewExitCodeError("command failed", result.ExitCode)
 }
 
 func (m *Manager) terraformTaint(cmd *Command, paths *Paths) error {
@@ -615,11 +605,7 @@ func (m *Manager) terraformTaint(cmd *Command, paths *Paths) error {
 		"Terraform taint failed",
 	)
 
-	if !result.Success {
-		return fmt.Errorf("terraform taint failed")
-	}
-
-	return nil
+	return NewExitCodeError("command failed", result.ExitCode)
 }
 
 func (m *Manager) terraformUntaint(cmd *Command, paths *Paths) error {
@@ -635,11 +621,7 @@ func (m *Manager) terraformUntaint(cmd *Command, paths *Paths) error {
 		"Terraform untaint failed",
 	)
 
-	if !result.Success {
-		return fmt.Errorf("terraform untaint failed")
-	}
-
-	return nil
+	return NewExitCodeError("command failed", result.ExitCode)
 }
 
 func (m *Manager) terraformState(cmd *Command, paths *Paths) error {
@@ -655,11 +637,7 @@ func (m *Manager) terraformState(cmd *Command, paths *Paths) error {
 		"Terraform state command failed",
 	)
 
-	if !result.Success {
-		return fmt.Errorf("terraform state command failed")
-	}
-
-	return nil
+	return NewExitCodeError("command failed", result.ExitCode)
 }
 
 func (m *Manager) terraformRefresh(cmd *Command, paths *Paths) error {
@@ -676,11 +654,7 @@ func (m *Manager) terraformRefresh(cmd *Command, paths *Paths) error {
 		"Terraform refresh failed",
 	)
 
-	if !result.Success {
-		return fmt.Errorf("terraform refresh failed")
-	}
-
-	return nil
+	return NewExitCodeError("command failed", result.ExitCode)
 }
 
 func (m *Manager) terraformValidate(cmd *Command, paths *Paths) error {
@@ -696,11 +670,7 @@ func (m *Manager) terraformValidate(cmd *Command, paths *Paths) error {
 		"Terraform validate failed",
 	)
 
-	if !result.Success {
-		return fmt.Errorf("terraform validate failed")
-	}
-
-	return nil
+	return NewExitCodeError("command failed", result.ExitCode)
 }
 
 func (m *Manager) terraformFormat(cmd *Command, paths *Paths) error {
@@ -716,11 +686,7 @@ func (m *Manager) terraformFormat(cmd *Command, paths *Paths) error {
 		"Terraform fmt failed",
 	)
 
-	if !result.Success {
-		return fmt.Errorf("terraform fmt failed")
-	}
-
-	return nil
+	return NewExitCodeError("command failed", result.ExitCode)
 }
 
 func (m *Manager) terraformShow(cmd *Command, paths *Paths) error {
@@ -746,11 +712,7 @@ func (m *Manager) terraformShow(cmd *Command, paths *Paths) error {
 		"Terraform show failed",
 	)
 
-	if !result.Success {
-		return fmt.Errorf("terraform show failed")
-	}
-
-	return nil
+	return NewExitCodeError("command failed", result.ExitCode)
 }
 
 func (m *Manager) terraformGet(cmd *Command, paths *Paths) error {
@@ -766,11 +728,7 @@ func (m *Manager) terraformGet(cmd *Command, paths *Paths) error {
 		"Terraform get failed",
 	)
 
-	if !result.Success {
-		return fmt.Errorf("terraform get failed")
-	}
-
-	return nil
+	return NewExitCodeError("command failed", result.ExitCode)
 }
 
 func (m *Manager) terraformWorkspace(cmd *Command, paths *Paths) error {
@@ -786,11 +744,7 @@ func (m *Manager) terraformWorkspace(cmd *Command, paths *Paths) error {
 		"Terraform workspace command failed",
 	)
 
-	if !result.Success {
-		return fmt.Errorf("terraform workspace command failed")
-	}
-
-	return nil
+	return NewExitCodeError("command failed", result.ExitCode)
 }
 
 func (m *Manager) terraformProviders(cmd *Command, paths *Paths) error {
@@ -806,11 +760,7 @@ func (m *Manager) terraformProviders(cmd *Command, paths *Paths) error {
 		"Terraform providers command failed",
 	)
 
-	if !result.Success {
-		return fmt.Errorf("terraform providers command failed")
-	}
-
-	return nil
+	return NewExitCodeError("command failed", result.ExitCode)
 }
 
 // generateTfmExtraVars creates the terraform variable flags for tf-manage integration

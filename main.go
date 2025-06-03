@@ -4,7 +4,6 @@ import (
 	"os"
 
 	"github.com/sorinlg/tf-manage2/internal/cli"
-	"github.com/sorinlg/tf-manage2/internal/framework"
 )
 
 // Version information - set by GoReleaser during build
@@ -20,7 +19,6 @@ func main() {
 	cli.SetVersionInfo(version, commit, date, builtBy)
 
 	if err := cli.Execute(); err != nil {
-		framework.Error(err.Error())
 		os.Exit(1)
 	}
 }

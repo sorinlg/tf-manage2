@@ -74,7 +74,15 @@ func Execute() error {
 	tfm := terraform.NewManager(cfg)
 
 	// Execute the command
-	return tfm.Execute(cmd)
+	err = tfm.Execute(cmd)
+
+	// Check if this is an exit code error and exit with the specific code
+	if exitCodeErr, ok := err.(*terraform.ExitCodeError); ok {
+		// For exit code errors, we want to preserve the specific exit code
+		os.Exit(exitCodeErr.ExitCode)
+	}
+
+	return err
 }
 
 // Command represents a tf-manage command
