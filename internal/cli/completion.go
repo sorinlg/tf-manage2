@@ -22,8 +22,8 @@ func NewCompletion(cfg *config.Config) *Completion {
 	}
 }
 
-// SuggestProjects lists available projects from environments directory
-func (c *Completion) SuggestProjects() error {
+// SuggestProducts lists available products from environments directory
+func (c *Completion) SuggestProducts() error {
 	envPath := c.config.GetEnvPath()
 
 	entries, err := os.ReadDir(envPath)
@@ -33,7 +33,7 @@ func (c *Completion) SuggestProjects() error {
 	}
 
 	if len(entries) == 0 {
-		return fmt.Errorf("no projects found in: %s", envPath)
+		return fmt.Errorf("no products found in: %s", envPath)
 	}
 
 	for _, entry := range entries {
@@ -65,12 +65,12 @@ func (c *Completion) SuggestModules() error {
 	return nil
 }
 
-// SuggestEnvironments lists available environments for a given project and module
-func (c *Completion) SuggestEnvironments(project, module string) error {
-	// First check if the project exists
-	projectPath := filepath.Join(c.config.GetEnvPath(), project)
-	if _, err := os.Stat(projectPath); os.IsNotExist(err) {
-		return fmt.Errorf("project path does not exist: %s", projectPath)
+// SuggestEnvironments lists available environments for a given product and module
+func (c *Completion) SuggestEnvironments(product, module string) error {
+	// First check if the product exists
+	productPath := filepath.Join(c.config.GetEnvPath(), product)
+	if _, err := os.Stat(productPath); os.IsNotExist(err) {
+		return fmt.Errorf("product path does not exist: %s", productPath)
 	}
 
 	// Then check if the module exists
@@ -79,9 +79,9 @@ func (c *Completion) SuggestEnvironments(project, module string) error {
 		return fmt.Errorf("module path does not exist: %s", modulePath)
 	}
 
-	entries, err := os.ReadDir(projectPath)
+	entries, err := os.ReadDir(productPath)
 	if err != nil {
-		return fmt.Errorf("failed to read directory: %s", projectPath)
+		return fmt.Errorf("failed to read directory: %s", productPath)
 	}
 
 	var environments []string
@@ -91,15 +91,15 @@ func (c *Completion) SuggestEnvironments(project, module string) error {
 		}
 
 		// Check if this environment has the specified module
-		moduleDirPath := filepath.Join(projectPath, entry.Name(), module)
+		moduleDirPath := filepath.Join(productPath, entry.Name(), module)
 		if _, err := os.Stat(moduleDirPath); err == nil {
 			environments = append(environments, entry.Name())
 		}
 	}
 
 	if len(environments) == 0 {
-		fmt.Fprintf(os.Stderr, "Search pattern %s/*/<%s> is empty\nYou must create entries first\n", projectPath, module)
-		return fmt.Errorf("no environments found for product %s and module %s", project, module)
+		fmt.Fprintf(os.Stderr, "Search pattern %s/*/<%s> is empty\nYou must create entries first\n", productPath, module)
+		return fmt.Errorf("no environments found for product %s and module %s", product, module)
 	}
 
 	for _, env := range environments {
@@ -108,16 +108,16 @@ func (c *Completion) SuggestEnvironments(project, module string) error {
 	return nil
 }
 
-// SuggestConfigs lists available configuration files for a given project, env, and module
-func (c *Completion) SuggestConfigs(project, env, module string) error {
-	// First check if the project exists
-	projectPath := filepath.Join(c.config.GetEnvPath(), project)
-	if _, err := os.Stat(projectPath); os.IsNotExist(err) {
-		return fmt.Errorf("project path does not exist: %s", projectPath)
+// SuggestConfigs lists available configuration files for a given product, env, and module
+func (c *Completion) SuggestConfigs(product, env, module string) error {
+	// First check if the product exists
+	productPath := filepath.Join(c.config.GetEnvPath(), product)
+	if _, err := os.Stat(productPath); os.IsNotExist(err) {
+		return fmt.Errorf("product path does not exist: %s", productPath)
 	}
 
 	// Then check if the environment exists
-	envPath := filepath.Join(projectPath, env)
+	envPath := filepath.Join(productPath, env)
 	if _, err := os.Stat(envPath); os.IsNotExist(err) {
 		return fmt.Errorf("environment path does not exist: %s", envPath)
 	}
@@ -128,7 +128,7 @@ func (c *Completion) SuggestConfigs(project, env, module string) error {
 		return fmt.Errorf("module path does not exist: %s", modulePath)
 	}
 
-	configPath := filepath.Join(c.config.GetEnvPath(), project, env, module)
+	configPath := filepath.Join(c.config.GetEnvPath(), product, env, module)
 
 	entries, err := os.ReadDir(configPath)
 	if err != nil {

@@ -123,10 +123,10 @@ func showHelp() error {
 	fmt.Printf(`tf-manage2 - Terraform workspace manager
 
 USAGE:
-    tf <project> <module> <env> <module_instance> <action> [workspace]
+    tf <product> <module> <env> <module_instance> <action> [workspace]
 
 ARGUMENTS:
-    project           Project/product name
+    product           Product name
     module            Terraform module name
     env               Environment (dev, staging, prod, etc.)
     module_instance   Module instance identifier
@@ -134,11 +134,11 @@ ARGUMENTS:
     workspace         Optional workspace override (format: workspace=name)
 
 EXAMPLES:
-    tf project1 sample_module dev instance_x init
-    tf project1 sample_module dev instance_x plan
-    tf project1 sample_module dev instance_x apply
-    tf project1 sample_module dev instance_x destroy
-    tf project1 sample_module dev instance_x plan workspace=custom
+    tf product1 sample_module dev instance_x init
+    tf product1 sample_module dev instance_x plan
+    tf product1 sample_module dev instance_x apply
+    tf product1 sample_module dev instance_x destroy
+    tf product1 sample_module dev instance_x plan workspace=custom
 
 FLAGS:
     -h, --help        Show this help message
@@ -161,7 +161,7 @@ func handleCompletion(args []string) error {
 	// Try to load configuration
 	cfg, err := config.LoadConfig()
 	if err != nil {
-		// If config fails to load, we're likely not in a tf-manage project
+		// If config fails to load, we're likely not in a tf-manage workspace
 		// Don't output completion suggestions but also don't error
 		// The bash completion script will handle this gracefully
 		return nil
@@ -171,8 +171,8 @@ func handleCompletion(args []string) error {
 	completion := NewCompletion(cfg)
 
 	switch args[0] {
-	case "projects":
-		return completion.SuggestProjects()
+	case "products":
+		return completion.SuggestProducts()
 	case "modules":
 		return completion.SuggestModules()
 	case "environments":

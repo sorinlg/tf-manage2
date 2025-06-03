@@ -63,9 +63,9 @@ _tf_manage2_complete() {
 
     case $COMP_CWORD in
         1)
-            # Complete projects
+            # Complete products
             local suggestions
-            suggestions=$(_call_tf_completion "projects")
+            suggestions=$(_call_tf_completion "products")
             if [[ $? -eq 0 && -n "$suggestions" ]]; then
                 COMPREPLY=($(compgen -W "$suggestions" -- "$cur_word"))
             fi
@@ -80,21 +80,21 @@ _tf_manage2_complete() {
             ;;
         3)
             # Complete environments
-            local project="${COMP_WORDS[1]}"
+            local product="${COMP_WORDS[1]}"
             local module="${COMP_WORDS[2]}"
             local suggestions
-            suggestions=$(_call_tf_completion "environments" "$project" "$module")
+            suggestions=$(_call_tf_completion "environments" "$product" "$module")
             if [[ $? -eq 0 && -n "$suggestions" ]]; then
                 COMPREPLY=($(compgen -W "$suggestions" -- "$cur_word"))
             fi
             ;;
         4)
             # Complete configs/instances
-            local project="${COMP_WORDS[1]}"
+            local product="${COMP_WORDS[1]}"
             local module="${COMP_WORDS[2]}"
             local env="${COMP_WORDS[3]}"
             local suggestions
-            suggestions=$(_call_tf_completion "configs" "$project" "$env" "$module")
+            suggestions=$(_call_tf_completion "configs" "$product" "$env" "$module")
             if [[ $? -eq 0 && -n "$suggestions" ]]; then
                 COMPREPLY=($(compgen -W "$suggestions" -- "$cur_word"))
             fi

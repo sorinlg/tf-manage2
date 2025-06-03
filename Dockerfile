@@ -23,7 +23,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w -extldflags=-static" -a -i
 FROM alpine:3.22 AS terraform-downloader
 
 # Image configuration
-ARG TERRAFORM_VERSION='1.12.1'
+ARG TERRAFORM_VERSION='1.9.8'
 
 # Install curl and unzip for downloading Terraform
 RUN apk add --no-cache curl unzip

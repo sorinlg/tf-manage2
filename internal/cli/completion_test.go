@@ -18,9 +18,9 @@ func TestCompletion(t *testing.T) {
 
 	// Create test directory structure
 	testDirs := []string{
-		"terraform/environments/project1/dev/sample_module",
-		"terraform/environments/project1/staging/sample_module",
-		"terraform/environments/project2/prod/another_module",
+		"terraform/environments/product1/dev/sample_module",
+		"terraform/environments/product1/staging/sample_module",
+		"terraform/environments/product2/prod/another_module",
 		"terraform/modules/sample_module",
 		"terraform/modules/another_module",
 	}
@@ -34,10 +34,10 @@ func TestCompletion(t *testing.T) {
 
 	// Create test config files
 	testFiles := []string{
-		"terraform/environments/project1/dev/sample_module/instance_x.tfvars",
-		"terraform/environments/project1/dev/sample_module/instance_y.tfvars",
-		"terraform/environments/project1/staging/sample_module/staging_instance.tfvars",
-		"terraform/environments/project2/prod/another_module/prod_instance.tfvars",
+		"terraform/environments/product1/dev/sample_module/instance_x.tfvars",
+		"terraform/environments/product1/dev/sample_module/instance_y.tfvars",
+		"terraform/environments/product1/staging/sample_module/staging_instance.tfvars",
+		"terraform/environments/product2/prod/another_module/prod_instance.tfvars",
 	}
 
 	for _, file := range testFiles {
@@ -94,16 +94,16 @@ export __tfm_module_rel_path='terraform/modules'
 	completion := NewCompletion(cfg)
 
 	// Test products completion
-	t.Run("SuggestProjects", func(t *testing.T) {
+	t.Run("SuggestProducts", func(t *testing.T) {
 		// Capture stdout
 		output := captureOutput(t, func() {
-			err := completion.SuggestProjects()
+			err := completion.SuggestProducts()
 			if err != nil {
 				t.Errorf("SuggestProducts failed: %v", err)
 			}
 		})
 
-		expected := []string{"project1", "project2"}
+		expected := []string{"product1", "product2"}
 		for _, exp := range expected {
 			if !strings.Contains(output, exp) {
 				t.Errorf("Expected product %s not found in output: %s", exp, output)
@@ -131,7 +131,7 @@ export __tfm_module_rel_path='terraform/modules'
 	// Test environments completion
 	t.Run("SuggestEnvironments", func(t *testing.T) {
 		output := captureOutput(t, func() {
-			err := completion.SuggestEnvironments("project1", "sample_module")
+			err := completion.SuggestEnvironments("product1", "sample_module")
 			if err != nil {
 				t.Errorf("SuggestEnvironments failed: %v", err)
 			}
@@ -144,7 +144,7 @@ export __tfm_module_rel_path='terraform/modules'
 			}
 		}
 
-		// Should not contain prod since project1 doesn't have prod/sample_module
+		// Should not contain prod since product1 doesn't have prod/sample_module
 		if strings.Contains(output, "prod") {
 			t.Errorf("Unexpected environment 'prod' found in output: %s", output)
 		}
@@ -153,7 +153,7 @@ export __tfm_module_rel_path='terraform/modules'
 	// Test configs completion
 	t.Run("SuggestConfigs", func(t *testing.T) {
 		output := captureOutput(t, func() {
-			err := completion.SuggestConfigs("project1", "dev", "sample_module")
+			err := completion.SuggestConfigs("product1", "dev", "sample_module")
 			if err != nil {
 				t.Errorf("SuggestConfigs failed: %v", err)
 			}
