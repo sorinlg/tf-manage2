@@ -1,3 +1,10 @@
+# Multi-stage build for minimal tf + Terraform image
+
+# Global build arguments available to all stages
+ARG USERNAME='tf'
+ARG USER_UID='1001'
+ARG USER_GID="${USER_UID}"
+
 # Build stage
 FROM golang:1.24.3 AS builder
 
@@ -23,7 +30,9 @@ RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w -extldflags=-static" -a -i
 FROM alpine:3.22 AS terraform-downloader
 
 # Image configuration
-ARG TERRAFORM_VERSION='1.9.8'
+ARG AWS_CLI_VERSION='2.15.38'
+ARG TERRAFORM_VERSION='1.12.1'
+
 
 # Install curl and unzip for downloading Terraform
 RUN apk add --no-cache curl unzip
@@ -33,57 +42,58 @@ RUN curl -LO "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terr
     unzip "terraform_${TERRAFORM_VERSION}_linux_amd64.zip" && \
     chmod +x terraform
 
-# always build for linux/amd64
-FROM --platform=linux/amd64 oraclelinux:9-slim
+# Utility stage - prepare Jenkins utilities
+FROM debian:12-slim AS utility-builder
 
-# Image configuration
-ARG AWS_CLI_VERSION='2.15.38'
-ARG USERNAME='tf'
-ARG USER_UID='1001'
-ARG USER_GID="${USER_UID}"
-ARG TFM_INSTALLER_DIR='/opt/tf-manage-installer'
-ARG TFM_INSTALL_PATH='/opt/terraform/tf-manage'
+# Re-declare ARGs for this stage
+ARG USERNAME
+ARG USER_UID
+ARG USER_GID
 
-# add kubectl yum repo
-COPY <<EOF  /etc/yum.repos.d/kubernetes.repo
-[kubernetes]
-name=Kubernetes
-baseurl=https://pkgs.k8s.io/core:/stable:/v1.30/rpm/
-enabled=1
-gpgcheck=1
-gpgkey=https://pkgs.k8s.io/core:/stable:/v1.30/rpm/repodata/repomd.xml.key
-EOF
+# Install utilities needed by Jenkins
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends procps git findutils && \
+    rm -rf /var/lib/apt/lists/*
 
-RUN \
-  # install the required packages
-  microdnf -y update \
-  && microdnf -y install wget unzip git bash-completion which curl vim procps jq kubectl findutils \
-  #
-  # create non-root user
-  && groupadd --gid $USER_GID $USERNAME \
-  && useradd --uid $USER_UID --gid $USER_GID -m $USERNAME \
-  #
-  # install the aws cli to /usr/local (no sudo needed in container)
-  && curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64-${AWS_CLI_VERSION}.zip" -o "awscliv2.zip" \
-  && unzip awscliv2.zip \
-  && ./aws/install --install-dir /usr/local/aws-cli --bin-dir /usr/local/bin \
-  && rm -rf awscliv2.zip aws/ \
-  #
-  # clean cache
-  && microdnf clean all \
-  #
-  # git config
-  && git config --global --add safe.directory /app \
-  && git config --global --add safe.directory ${TFM_INSTALLER_DIR}
+# Create a non-root user for Jenkins in this stage
+RUN groupadd --gid ${USER_GID} ${USERNAME} && \
+    useradd --uid ${USER_UID} --gid ${USER_GID} --create-home --shell /bin/sh ${USERNAME}
 
-# switch to non-root user
-USER $USERNAME
+# Runtime stage - using distroless for security
+FROM gcr.io/distroless/static-debian12
 
-# install tf-manage
-RUN mkdir -p /home/$USERNAME/bin
+# Re-declare ARGs for this stage
+ARG USERNAME
+
+# Copy the binaries from previous stages
+COPY --from=builder /app/tf /usr/local/bin/tf
 COPY --from=terraform-downloader /terraform /usr/local/bin/terraform
-COPY --from=builder /app/tf /home/$USERNAME/bin
-ENV PATH="${PATH}:/home/$USERNAME/bin"
+# Copy process utilities from debian stage for Jenkins
+COPY --from=utility-builder /usr/bin/top /usr/bin/top
+COPY --from=utility-builder /usr/bin/ps /usr/bin/ps
+COPY --from=utility-builder /usr/bin/cat /usr/bin/cat
+COPY --from=utility-builder /usr/bin/find /usr/bin/find
+COPY --from=utility-builder /usr/bin/git /usr/bin/git
+COPY --from=utility-builder /bin/ls /bin/ls
+COPY --from=utility-builder /bin/sh /bin/sh
+COPY --from=utility-builder /lib/ /lib/
+COPY --from=utility-builder /usr/lib/ /usr/lib/
 
-# set the working directory
-WORKDIR /app
+# Copy user and group information
+COPY --from=utility-builder /etc/passwd /etc/passwd
+COPY --from=utility-builder /etc/group /etc/group
+COPY --from=utility-builder /etc/shadow /etc/shadow
+COPY --from=utility-builder /home/${USERNAME} /home/${USERNAME}
+
+# Set PATH to include /usr/local/bin
+ENV PATH="/usr/local/bin:${PATH}"
+ENV HOME="/home/${USERNAME}"
+
+# Set working directory
+WORKDIR /workspace
+
+# Run as non-root user
+USER ${USERNAME}
+
+# Keep container running for Jenkins
+ENTRYPOINT [ "/usr/local/bin/tf" ]
