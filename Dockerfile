@@ -50,6 +50,7 @@ COPY --from=terraform-downloader /terraform /usr/local/bin/terraform
 # Copy process utilities from debian stage for Jenkins
 COPY --from=utility-builder /usr/bin/top /usr/bin/top
 COPY --from=utility-builder /usr/bin/ps /usr/bin/ps
+COPY --from=utility-builder /usr/bin/cat /usr/bin/cat
 COPY --from=utility-builder /lib/ /lib/
 COPY --from=utility-builder /usr/lib/ /usr/lib/
 
