@@ -27,3 +27,6 @@ Thumbs.db
 
 # Example directories
 examples/
+
+# Test binaries
+tf

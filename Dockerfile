@@ -1,10 +1,10 @@
 # Multi-stage build for minimal tf + Terraform image
 
 # Build stage
-FROM golang:1.24.3-alpine AS builder
+FROM golang:1.24.3 AS builder
 
-# Install git (needed for Go modules)
-RUN apk add --no-cache git
+# # Install git (needed for Go modules)
+# RUN apk add --no-cache git
 
 # Set working directory
 WORKDIR /app
@@ -19,7 +19,7 @@ RUN go mod download
 COPY . .
 
 # Build the binary with static linking
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o tf .
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w -extldflags=-static" -a -installsuffix cgo -o tf .
 
 # Terraform download stage
 FROM alpine:3.22 AS terraform-downloader
@@ -51,6 +51,8 @@ COPY --from=terraform-downloader /terraform /usr/local/bin/terraform
 COPY --from=utility-builder /usr/bin/top /usr/bin/top
 COPY --from=utility-builder /usr/bin/ps /usr/bin/ps
 COPY --from=utility-builder /usr/bin/cat /usr/bin/cat
+COPY --from=utility-builder /bin/ls /bin/ls
+COPY --from=utility-builder /bin/sh /bin/sh
 COPY --from=utility-builder /lib/ /lib/
 COPY --from=utility-builder /usr/lib/ /usr/lib/
 
@@ -64,4 +66,4 @@ WORKDIR /workspace
 USER 1001:1001
 
 # Set entrypoint
-ENTRYPOINT ["tf"]
+ENTRYPOINT ["/bin/sh", "-c"]
