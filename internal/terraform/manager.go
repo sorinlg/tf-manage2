@@ -208,18 +208,21 @@ func (m *Manager) generateWorkspace(cmd *Command, paths *Paths) string {
 }
 
 func (m *Manager) detectExecMode() string {
+	unattended := framework.AddEmphasisRed("unattended")
+	interactive := framework.AddEmphasisGreen("operator")
+
 	// Allow explicit override
 	if os.Getenv("TF_EXEC_MODE_OVERRIDE") != "" {
-		return "unattended"
+		return unattended
 	}
 
 	// Check for CI/CD environment variables
 	if m.isRunningInCI() {
-		return "unattended"
+		return unattended
 	}
 
 	// Default to interactive operator mode
-	return "operator"
+	return interactive
 }
 
 // isRunningInCI detects if we're running in any popular CI/CD system
