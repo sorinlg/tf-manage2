@@ -47,6 +47,9 @@ release:
     name: tf-manage2
   # Replace existing artifacts to handle force pushes on develop branch
   replace_existing_artifacts: true
+  # Allow overwriting pre-release binaries when tags are force-pushed
+  make_latest: false  # Don't mark prereleases as "latest"
+  prerelease: auto    # Auto-detect prereleases based on version (alpha/beta/rc)
   name_template: "v{{.Version}}"
   header: |
     ## tf-manage2 v{{.Version}}
@@ -85,7 +88,7 @@ brews:
     homepage: "https://github.com/sorinlg/tf-manage2"
     description: "Terraform workspace manager with enhanced CI/CD detection and interactive commands"
     license: "MIT"
-    skip_upload: "{{ .IsPrerelease }}"  # Skip prereleases for main tap
+    skip_upload: "{{ .Env.IS_PRERELEASE }}" # Skip prereleases for main tap
     dependencies:
       - name: terraform
         type: optional
@@ -112,7 +115,7 @@ brews:
     homepage: "https://github.com/sorinlg/tf-manage2"
     description: "Terraform workspace manager with enhanced CI/CD detection and interactive commands (development version)"
     license: "MIT"
-    skip_upload: "{{ not .IsPrerelease }}"  # Only upload prereleases to dev tap
+    skip_upload: "{{ not .Env.IS_PRERELEASE }}" # Only upload prereleases to dev tap
     dependencies:
       - name: terraform
         type: optional

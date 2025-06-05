@@ -46,6 +46,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HOMEBREW_GITHUB_API_TOKEN: ${{ secrets.HOMEBREW_GITHUB_API_TOKEN }}
+          IS_PRERELEASE: ${{ steps.release-type.outputs.type == 'prerelease' }}
 
       - name: Summary
         run: |

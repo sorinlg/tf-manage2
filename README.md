@@ -64,6 +64,7 @@ fi
 ```bash
 # Add to ~/.zshrc
 if command -v tf &> /dev/null; then
+  fpath=( $(brew --prefix)/share/tf-completion $fpath )
   autoload -U compinit && compinit
 fi
 ```

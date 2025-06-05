@@ -34,10 +34,6 @@ echo 'source /path/to/tf-manage2/bin/tf_complete.sh' >> ~/.bashrc
 #### Zsh
 ```bash
 # For native zsh completion (recommended)
-# Copy to zsh completion directory
-cp /path/to/tf-manage2/bin/tf_complete.zsh /usr/local/share/zsh/site-functions/_tf
-
-# Or add to fpath and autoload
 fpath=(/path/to/tf-manage2/bin $fpath)
 autoload -U compinit && compinit
 
