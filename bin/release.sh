@@ -74,9 +74,17 @@ if ! git diff-index --quiet HEAD --; then
 fi
 
 # Ensure the current branch is up to date, but only if it's not a prerelease
-if [[ "$release_type" != "prerelease" ]] && ! git diff --quiet origin/"$branch" HEAD; then
-  error "Current branch is not up to date with origin/$branch. Please pull the latest changes."
-  exit 1
+if [[ "$release_type" != "prerelease" ]]; then
+  # Check if we're missing remote commits
+  if ! git merge-base --is-ancestor origin/"$branch" HEAD; then
+    error "Current branch is missing commits from origin/$branch. Please pull the latest changes."
+    exit 1
+  fi
+fi
+
+# Check if we have unpushed commits (warn but don't fail)
+if ! git merge-base --is-ancestor HEAD origin/"$branch"; then
+  warning "Current branch has unpushed commits ahead of origin/$branch."
 fi
 
 # Validate GoReleaser configuration
@@ -116,10 +124,13 @@ info "Creating tag: $tag"
 
 if [[ "$dry_run" == true ]]; then
   warning "DRY RUN MODE: The following commands would be executed:"
+  echo "  git push $git_force_flag origin $branch"
   echo "  git tag $git_force_flag $tag"
   echo "  git push $git_force_flag origin $tag"
   info "Dry run complete. No changes were made."
 else
+  # Push the branch
+  git push $git_force_flag origin "$branch"
   # Create the tag
   git tag $git_force_flag $tag
   git push $git_force_flag origin $tag
