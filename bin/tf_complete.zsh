@@ -44,9 +44,34 @@ _tf_manage2() {
         fi
     }
 
-    # Define completion states using _arguments
+    # Check if we're completing config commands
+    if [[ "$words[2]" == "config" ]]; then
+        case $CURRENT in
+            3)
+                # Complete config subcommands
+                local -a config_commands
+                config_commands=($(_call_tf_completion "config"))
+                if (( ${#config_commands[@]} > 0 )); then
+                    _describe 'config commands' config_commands
+                fi
+                ;;
+            4)
+                # Complete config init formats
+                if [[ "$words[3]" == "init" ]]; then
+                    local -a init_formats
+                    init_formats=($(_call_tf_completion "config_init"))
+                    if (( ${#init_formats[@]} > 0 )); then
+                        _describe 'config formats' init_formats
+                    fi
+                fi
+                ;;
+        esac
+        return 0
+    fi
+
+    # Define completion states using _arguments for regular terraform commands
     _arguments -C \
-        '1:product:_tf_products' \
+        '1:product:_tf_products_or_config' \
         '2:module:_tf_modules' \
         '3:environment:_tf_environments' \
         '4:config:_tf_configs' \
@@ -62,6 +87,19 @@ _tf_manage2() {
 }
 
 # Completion functions for each argument position
+_tf_products_or_config() {
+    local -a options
+    local -a products
+    products=($(_call_tf_completion "products"))
+
+    # Add products and config command
+    options=("${products[@]}" "config")
+
+    if (( ${#options[@]} > 0 )); then
+        _describe 'products or config' options
+    fi
+}
+
 _tf_products() {
     local -a products
     products=($(_call_tf_completion "products"))

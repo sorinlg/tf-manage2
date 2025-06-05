@@ -61,14 +61,47 @@ _tf_manage2_complete() {
         return 0
     }
 
+    # Check if first argument is "config" for special handling
+    if [[ "${COMP_WORDS[1]}" == "config" ]]; then
+        case $COMP_CWORD in
+            2)
+                # Complete config subcommands
+                local suggestions
+                suggestions=$(_call_tf_completion "config")
+                if [[ $? -eq 0 && -n "$suggestions" ]]; then
+                    COMPREPLY=($(compgen -W "$suggestions" -- "$cur_word"))
+                fi
+                ;;
+            3)
+                # Complete config init formats
+                if [[ "${COMP_WORDS[2]}" == "init" ]]; then
+                    local suggestions
+                    suggestions=$(_call_tf_completion "config_init")
+                    if [[ $? -eq 0 && -n "$suggestions" ]]; then
+                        COMPREPLY=($(compgen -W "$suggestions" -- "$cur_word"))
+                    fi
+                fi
+                ;;
+            *)
+                # No further completion for config commands
+                COMPREPLY=()
+                ;;
+        esac
+        return 0
+    fi
+
     case $COMP_CWORD in
         1)
-            # Complete products
+            # Complete products or config command
             local suggestions
             suggestions=$(_call_tf_completion "products")
+            # Add config as a special command
             if [[ $? -eq 0 && -n "$suggestions" ]]; then
-                COMPREPLY=($(compgen -W "$suggestions" -- "$cur_word"))
+                suggestions="$suggestions config"
+            else
+                suggestions="config"
             fi
+            COMPREPLY=($(compgen -W "$suggestions" -- "$cur_word"))
             ;;
         2)
             # Complete modules

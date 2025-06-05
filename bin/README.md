@@ -53,12 +53,17 @@ When installing tf-manage2 via package managers, both completion scripts are typ
 Once installed, tab completion works for all command positions:
 
 ```bash
+# Terraform workflow completion
 tf <TAB>              # Shows available projects
 tf project1 <TAB>     # Shows available modules
 tf project1 sample_module <TAB>  # Shows available environments
 tf project1 sample_module dev <TAB>  # Shows available configs
 tf project1 sample_module dev instance_x <TAB>  # Shows available actions
 tf project1 sample_module dev instance_x plan <TAB>  # Shows workspace options
+
+# Configuration management completion
+tf config <TAB>       # Shows config subcommands: convert, init, validate
+tf config init <TAB>  # Shows init formats: yaml, legacy
 ```
 
 ## Completion Commands
@@ -74,6 +79,8 @@ The Go binary supports the following completion commands:
 | `__complete actions`                          | Lists terraform actions               | `init`, `plan`, `apply`, etc. |
 | `__complete workspace`                        | Suggests workspace override           | `workspace=default`           |
 | `__complete repo`                             | Shows repository name                 | `tfm-project`                 |
+| `__complete config`                           | Lists config subcommands              | `convert`, `init`, `validate` |
+| `__complete config_init`                      | Lists config init formats             | `yaml`, `legacy`              |
 
 
 ## Development

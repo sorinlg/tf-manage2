@@ -94,6 +94,22 @@ tf project1 sample_module staging instance_y destroy workspace=custom
 
 ## Configuration
 
+tf-manage2 supports both modern YAML and legacy bash configuration formats:
+
+### Modern YAML Format (Recommended)
+
+Create a `.tfm.yaml` file in your project root:
+
+```yaml
+# tf-manage2 configuration file
+config_version: "2.0"
+repo_name: "your-project-name"
+env_rel_path: "terraform/environments"
+module_rel_path: "terraform/modules"
+```
+
+### Legacy Bash Format (Deprecated)
+
 Create a `.tfm.conf` file in your project root:
 
 ```bash
@@ -103,10 +119,28 @@ export __tfm_env_rel_path='terraform/environments'
 export __tfm_module_rel_path='terraform/modules'
 ```
 
+⚠️ **Deprecation Notice**: The legacy `.tfm.conf` format is deprecated and will be removed in v2.0. Use `tf config convert` to migrate to the YAML format.
+
+### Configuration Management
+
+```bash
+# Create new YAML configuration
+tf config init yaml
+
+# Create new legacy configuration (deprecated)
+tf config init legacy
+
+# Convert legacy to YAML format
+tf config convert
+
+# Validate current configuration
+tf config validate
+```
+
 The tool auto-detects git repository root and validates project structure.
 
-## Legacy Support
-tf-manage2 maintains compatibility with existing [tf-manage](https://github.com/sorinlg/tf-manage) projects. It supports the same folder structure and configuration, allowing seamless migration.
+## Legacy Support & Migration
+tf-manage2 maintains full compatibility with existing [tf-manage](https://github.com/sorinlg/tf-manage) projects while introducing modern configuration management.
 
 ### ✨ Key Improvements
 - **Native Execution**: Go binary execution is significantly faster than shell script interpretation
@@ -114,5 +148,14 @@ tf-manage2 maintains compatibility with existing [tf-manage](https://github.com/
 - **Optimized Validation**: Native Go functions for path and file validation instead of shell commands
 - **No Shell Dependencies**: Eliminates dependency on specific bash versions or shell features
 - **Drop-in Replacement**: Same command interface and behavior with support for existing project structures
-- **Configuration Compatibility**: Reads existing .tfm.conf files (new modern format is planned)
+- **Modern Configuration**: New YAML format with backward compatibility for existing `.tfm.conf` files
+- **Migration Tools**: Built-in conversion tools and deprecation notices
 - **Performance Improvements**: 60-75% faster execution compared to the original bash version
+
+### Migration Path
+
+1. **Immediate**: Existing `.tfm.conf` files work without changes
+2. **v1.x**: Deprecation warnings guide users to migrate to YAML format
+3. **v2.0**: Legacy format support will be removed
+
+**Compatibility Promise**: All v1.x `.tfm.conf` configurations will be supported until v2.0 with clear migration guidance.

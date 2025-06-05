@@ -192,3 +192,27 @@ func (c *Completion) SuggestRepo() error {
 	fmt.Println(repoName)
 	return nil
 }
+
+// SuggestConfigCommands lists available config subcommands
+func (c *Completion) SuggestConfigCommands() error {
+	commands := []string{
+		"convert", "init", "validate",
+	}
+
+	for _, cmd := range commands {
+		fmt.Println(cmd)
+	}
+	return nil
+}
+
+// SuggestConfigInitFormats lists available config init formats
+func (c *Completion) SuggestConfigInitFormats() error {
+	formats := []string{
+		"yaml", "legacy",
+	}
+
+	for _, format := range formats {
+		fmt.Println(format)
+	}
+	return nil
+}
