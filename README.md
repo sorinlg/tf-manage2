@@ -17,7 +17,7 @@ tf-manage2 provides:
 
 ```bash
 brew tap sorinlg/tap
-brew install tf-manage2
+brew install sorinlg/tap/tf-manage2
 ```
 
 </details>
