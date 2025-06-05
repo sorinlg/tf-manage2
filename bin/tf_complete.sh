@@ -52,7 +52,7 @@ _tf_manage2_complete() {
             # non-zero exit code indicates an error
             return 1
         fi
-        if
+
         # Output suggestions if any
         if [[ -n "$suggestions" ]]; then
             echo "$suggestions"

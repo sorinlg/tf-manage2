@@ -39,6 +39,7 @@ archives:
       - README.md
       - LICENSE
       - bin/tf_complete.sh
+      - bin/tf_complete.zsh
 
 release:
   github:
@@ -68,6 +69,7 @@ checksum:
   name_template: "checksums.txt"
 
 brews:
+  # Main tap for stable releases only
   - name: tf-manage2
     repository:
       owner: sorinlg
@@ -83,7 +85,7 @@ brews:
     homepage: "https://github.com/sorinlg/tf-manage2"
     description: "Terraform workspace manager with enhanced CI/CD detection and interactive commands"
     license: "MIT"
-    skip_upload: auto
+    skip_upload: "{{ .IsPrerelease }}"  # Skip prereleases for main tap
     dependencies:
       - name: terraform
         type: optional
@@ -92,6 +94,34 @@ brews:
     install: |
       bin.install "tf"
       bash_completion.install "bin/tf_complete.sh" => "tf"
+      zsh_completion.install "bin/tf_complete.zsh" => "_tf"
+
+  # Dev tap for prereleases (alpha, beta, rc)
+  - name: tf-manage2-dev
+    repository:
+      owner: sorinlg
+      name: homebrew-dev-tap
+      branch: main
+      token: "{{ .Env.HOMEBREW_GITHUB_API_TOKEN }}"
+    url_template: "https://github.com/sorinlg/tf-manage2/releases/download/{{ .Tag }}/{{ .ArtifactName }}"
+    download_strategy: CurlDownloadStrategy
+    commit_author:
+      name: Sorin Lacriteanu
+      email: sorin.lacriteanu@gmail.com
+    commit_msg_template: "Brew formula update for {{ .ProjectName }} development version {{ .Tag }}"
+    homepage: "https://github.com/sorinlg/tf-manage2"
+    description: "Terraform workspace manager with enhanced CI/CD detection and interactive commands (development version)"
+    license: "MIT"
+    skip_upload: "{{ not .IsPrerelease }}"  # Only upload prereleases to dev tap
+    dependencies:
+      - name: terraform
+        type: optional
+    test: |
+      system "#{bin}/tf", "--help"
+    install: |
+      bin.install "tf"
+      bash_completion.install "bin/tf_complete.sh" => "tf"
+      zsh_completion.install "bin/tf_complete.zsh" => "_tf"
 
 snapshot:
   version_template: "{{ incpatch .Version }}-next"

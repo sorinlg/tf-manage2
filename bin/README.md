@@ -1,6 +1,11 @@
-# tf-manage2 Bash Completion
+# tf-manage2 Shell Completion
 
-This directory contains the bash completion script for tf-manage2, which provides intelligent auto-completion for the `tf` command.
+This directory contains shell completion scripts for tf-manage2, which provide intelligent auto-completion for the `tf` command in both bash and zsh.
+
+## Files
+
+- `tf_complete.sh` - Bash completion script (also works in zsh compatibility mode)
+- `tf_complete.zsh` - Native zsh completion script with enhanced features
 
 ## Overview
 
@@ -9,25 +14,43 @@ This directory contains the bash completion script for tf-manage2, which provide
 The completion system consists of two components:
 
 1. **Go Completion Commands** (`internal/cli/completion.go`): Provides completion logic using the same configuration and validation as the main CLI
-2. **Bash Completion Script** (`bin/tf_complete.sh`): Thin wrapper that calls the Go binary for suggestions
+2. **Shell Completion Scripts**:
+   - **Bash** (`bin/tf_complete.sh`): Compatible with bash and zsh
+   - **Zsh** (`bin/tf_complete.zsh`): Native zsh completion with enhanced features
 
 ## Installation
 
 ### Manual Installation
 
+#### Bash
 ```bash
 # Source the completion script in your shell
 source /path/to/tf-manage2/bin/tf_complete.sh
 
-# Or add to your shell profile for permanent installation
+# Add to your shell profile for permanent installation
 echo 'source /path/to/tf-manage2/bin/tf_complete.sh' >> ~/.bashrc
-# For zsh users:
+```
+
+#### Zsh
+```bash
+# For native zsh completion (recommended)
+# Copy to zsh completion directory
+cp /path/to/tf-manage2/bin/tf_complete.zsh /usr/local/share/zsh/site-functions/_tf
+
+# Or add to fpath and autoload
+fpath=(/path/to/tf-manage2/bin $fpath)
+autoload -U compinit && compinit
+
+# Alternative: Use bash-compatible script
 echo 'source /path/to/tf-manage2/bin/tf_complete.sh' >> ~/.zshrc
 ```
 
 ### Package Manager Installation
 
-When installing tf-manage2 via package managers, the completion script is typically installed automatically.
+When installing tf-manage2 via package managers, both completion scripts are typically installed automatically:
+
+- **Homebrew**: Installs both bash and zsh completions automatically
+- **Manual packages**: Include both completion scripts in the archive
 
 ## Usage
 
@@ -71,8 +94,12 @@ go build -o tf ../../
 # Set the TFM_BINARY environment variable to point to the tf binary
 export TFM_BINARY='./tf'
 
-# Source the completion script
+# Source the completion script (bash)
 source ../../bin/tf_complete.sh
+
+# Or test zsh completion
+cp ../../bin/tf_complete.zsh _tf
+autoload -U compinit && compinit
 
 # Test individual completion commands
 ${TFM_BINARY} __complete projects
@@ -87,8 +114,8 @@ tf <TAB>
 
 1. Add completion logic to `internal/cli/completion.go`
 2. Add command handler to `internal/cli/cli.go`
-3. Update bash script if needed
-4. Test thoroughly
+3. Update both bash and zsh scripts if needed
+4. Test thoroughly in both shells
 
 ## Troubleshooting
 

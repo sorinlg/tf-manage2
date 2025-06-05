@@ -13,14 +13,26 @@ tf-manage2 provides:
 
 ## Installation
 
-<details><summary>Homebrew</summary>
+<details><summary>Homebrew (Stable)</summary>
 
 ```bash
-brew tap sorinlg/tap
 brew install sorinlg/tap/tf-manage2
 ```
 
 </details>
+
+<details><summary>Homebrew (Development/Prerelease)</summary>
+
+For testing prerelease versions with new features:
+
+```bash
+brew install sorinlg/dev-tap/tf-manage2
+```
+
+This tap contains alpha, beta, and rc versions for early testing.
+
+</details>
+
 <details><summary>Go install</summary>
 
 ```bash
@@ -36,14 +48,23 @@ sudo mv tf-manage2 /usr/local/bin/
 ```
 </details>
 
-<details><summary>Bash completion</summary>
+<details><summary>Shell completion</summary>
 
-After installing tf-manage2, enable bash completion by adding the following to your shell configuration:
+After installing tf-manage2, enable shell completion:
 
+**Bash:**
 ```bash
-# Add to ~/.bashrc or ~/.zshrc
+# Add to ~/.bashrc
 if command -v tf &> /dev/null; then
   . $(brew --prefix)/etc/bash_completion.d/tf
+fi
+```
+
+**Zsh:**
+```bash
+# Add to ~/.zshrc
+if command -v tf &> /dev/null; then
+  autoload -U compinit && compinit
 fi
 ```
 

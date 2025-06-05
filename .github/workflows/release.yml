@@ -27,6 +27,17 @@ jobs:
         with:
           go-version: stable
 
+      - name: Determine release type
+        id: release-type
+        run: |
+          if [[ ${{ github.ref_name }} =~ ^v[0-9]+\.[0-9]+\.[0-9]+-(alpha|beta|rc) ]]; then
+            echo "type=prerelease" >> $GITHUB_OUTPUT
+            echo "This is a prerelease: ${{ github.ref_name }}"
+          else
+            echo "type=stable" >> $GITHUB_OUTPUT
+            echo "This is a stable release: ${{ github.ref_name }}"
+          fi
+
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:
@@ -35,3 +46,16 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HOMEBREW_GITHUB_API_TOKEN: ${{ secrets.HOMEBREW_GITHUB_API_TOKEN }}
+
+      - name: Summary
+        run: |
+          echo "## Release Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tag**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Type**: ${{ steps.release-type.outputs.type }}" >> $GITHUB_STEP_SUMMARY
+          if [[ "${{ steps.release-type.outputs.type }}" == "prerelease" ]]; then
+            echo "- **Homebrew**: Updated [homebrew-dev-tap](https://github.com/sorinlg/homebrew-dev-tap)" >> $GITHUB_STEP_SUMMARY
+            echo "- **Install**: \`brew install sorinlg/dev-tap/tf-manage2-dev\`" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- **Homebrew**: Updated [homebrew-tap](https://github.com/sorinlg/homebrew-tap)" >> $GITHUB_STEP_SUMMARY
+            echo "- **Install**: \`brew install sorinlg/tap/tf-manage2\`" >> $GITHUB_STEP_SUMMARY
+          fi
