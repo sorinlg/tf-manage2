@@ -8,9 +8,6 @@ ARG USER_GID="${USER_UID}"
 # Build stage
 FROM golang:1.24.3 AS builder
 
-# # Install git (needed for Go modules)
-# RUN apk add --no-cache git
-
 # Set working directory
 WORKDIR /app
 
@@ -23,8 +20,10 @@ RUN go mod download
 # Copy source code
 COPY . .
 
-# Build the binary with static linking
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w -extldflags=-static" -a -installsuffix cgo -o tf .
+# Build the binary with static linking for target architecture
+ARG TARGETOS
+ARG TARGETARCH
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -ldflags="-s -w -extldflags=-static" -a -installsuffix cgo -o tf .
 
 # Terraform download stage
 FROM alpine:3.22 AS terraform-downloader
@@ -32,14 +31,18 @@ FROM alpine:3.22 AS terraform-downloader
 # Image configuration
 ARG AWS_CLI_VERSION='2.15.38'
 ARG TERRAFORM_VERSION='1.12.1'
-
+ARG TARGETARCH
 
 # Install curl and unzip for downloading Terraform
 RUN apk add --no-cache curl unzip
 
-# Download and extract Terraform
-RUN curl -LO "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip" && \
-    unzip "terraform_${TERRAFORM_VERSION}_linux_amd64.zip" && \
+# Download and extract Terraform for the target architecture
+RUN ARCH=${TARGETARCH} && \
+    if [ "${ARCH}" = "amd64" ]; then TERRAFORM_ARCH="amd64"; \
+    elif [ "${ARCH}" = "arm64" ]; then TERRAFORM_ARCH="arm64"; \
+    else echo "Unsupported architecture: ${ARCH}" && exit 1; fi && \
+    curl -LO "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_${TERRAFORM_ARCH}.zip" && \
+    unzip "terraform_${TERRAFORM_VERSION}_linux_${TERRAFORM_ARCH}.zip" && \
     chmod +x terraform
 
 # Utility stage - prepare Jenkins utilities

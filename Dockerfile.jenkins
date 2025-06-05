@@ -1,9 +1,6 @@
 # Build stage
 FROM golang:1.24.3 AS builder
 
-# # Install git (needed for Go modules)
-# RUN apk add --no-cache git
-
 # Set working directory
 WORKDIR /app
 
@@ -16,25 +13,32 @@ RUN go mod download
 # Copy source code
 COPY . .
 
-# Build the binary with static linking
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w -extldflags=-static" -a -installsuffix cgo -o tf .
+# Build the binary with static linking for target architecture
+ARG TARGETOS
+ARG TARGETARCH
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -ldflags="-s -w -extldflags=-static" -a -installsuffix cgo -o tf .
 
 # Terraform download stage
 FROM alpine:3.22 AS terraform-downloader
 
 # Image configuration
 ARG TERRAFORM_VERSION='1.9.8'
+ARG TARGETARCH
 
 # Install curl and unzip for downloading Terraform
 RUN apk add --no-cache curl unzip
 
-# Download and extract Terraform
-RUN curl -LO "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip" && \
-    unzip "terraform_${TERRAFORM_VERSION}_linux_amd64.zip" && \
+# Download and extract Terraform for the target architecture
+RUN ARCH=${TARGETARCH} && \
+    if [ "${ARCH}" = "amd64" ]; then TERRAFORM_ARCH="amd64"; \
+    elif [ "${ARCH}" = "arm64" ]; then TERRAFORM_ARCH="arm64"; \
+    else echo "Unsupported architecture: ${ARCH}" && exit 1; fi && \
+    curl -LO "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_${TERRAFORM_ARCH}.zip" && \
+    unzip "terraform_${TERRAFORM_VERSION}_linux_${TERRAFORM_ARCH}.zip" && \
     chmod +x terraform
 
-# always build for linux/amd64
-FROM --platform=linux/amd64 oraclelinux:9-slim
+# Runtime stage
+FROM oraclelinux:9-slim
 
 # Image configuration
 ARG AWS_CLI_VERSION='2.15.38'
@@ -43,6 +47,7 @@ ARG USER_UID='1001'
 ARG USER_GID="${USER_UID}"
 ARG TFM_INSTALLER_DIR='/opt/tf-manage-installer'
 ARG TFM_INSTALL_PATH='/opt/terraform/tf-manage'
+ARG TARGETARCH
 
 # add kubectl yum repo
 COPY <<EOF  /etc/yum.repos.d/kubernetes.repo
@@ -64,7 +69,11 @@ RUN \
   && useradd --uid $USER_UID --gid $USER_GID -m $USERNAME \
   #
   # install the aws cli to /usr/local (no sudo needed in container)
-  && curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64-${AWS_CLI_VERSION}.zip" -o "awscliv2.zip" \
+  && ARCH=${TARGETARCH} \
+  && if [ "${ARCH}" = "amd64" ]; then AWS_ARCH="x86_64"; \
+     elif [ "${ARCH}" = "arm64" ]; then AWS_ARCH="aarch64"; \
+     else echo "Unsupported architecture: ${ARCH}" && exit 1; fi \
+  && curl "https://awscli.amazonaws.com/awscli-exe-linux-${AWS_ARCH}-${AWS_CLI_VERSION}.zip" -o "awscliv2.zip" \
   && unzip awscliv2.zip \
   && ./aws/install --install-dir /usr/local/aws-cli --bin-dir /usr/local/bin \
   && rm -rf awscliv2.zip aws/ \
