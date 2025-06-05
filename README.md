@@ -36,7 +36,9 @@ This tap contains alpha, beta, and rc versions for early testing.
 <details><summary>Go install</summary>
 
 ```bash
+export PATH=$PATH:$(go env GOPATH)/bin
 go install github.com/sorinlg/tf-manage2@latest
+sudo ln -s $(go env GOPATH)/bin/tf-manage2 /usr/local/bin/tf
 ```
 </details>
 <details><summary>Download binary</summary>
@@ -44,7 +46,7 @@ go install github.com/sorinlg/tf-manage2@latest
 ```bash
 curl -L https://github.com/sorinlg/tf-manage2/releases/latest/download/tf-manage2-linux-amd64 -o tf-manage2
 chmod +x tf-manage2
-sudo mv tf-manage2 /usr/local/bin/
+sudo mv tf-manage2 /usr/local/bin/tf
 ```
 </details>
 
