@@ -44,59 +44,59 @@ _tf_manage2() {
         fi
     }
 
-    # Check if we're completing config commands
-    if [[ "$words[2]" == "config" ]]; then
+    # Check if first argument is 'config' to handle config commands differently
+    if [[ $words[2] == "config" ]]; then
+        # Handle config subcommands
         case $CURRENT in
             3)
-                # Complete config subcommands
-                local -a config_commands
-                config_commands=($(_call_tf_completion "config"))
-                if (( ${#config_commands[@]} > 0 )); then
-                    _describe 'config commands' config_commands
-                fi
+                # Second argument after 'config' - suggest config commands (convert, init, validate)
+                _tf_config_commands
                 ;;
             4)
-                # Complete config init formats
-                if [[ "$words[3]" == "init" ]]; then
-                    local -a init_formats
-                    init_formats=($(_call_tf_completion "config_init"))
-                    if (( ${#init_formats[@]} > 0 )); then
-                        _describe 'config formats' init_formats
-                    fi
+                # Third argument - handle init formats for 'config init' command
+                if [[ $words[3] == "init" ]]; then
+                    _tf_config_init_formats
                 fi
+                # For other config commands (convert, validate), no additional arguments needed
                 ;;
         esac
-        return 0
+    else
+        # Define completion states for regular tf commands using _arguments
+        _arguments -C \
+            '1:product or command:_tf_first_arg' \
+            '2:module:_tf_modules' \
+            '3:environment:_tf_environments' \
+            '4:config:_tf_configs' \
+            '5:action:_tf_actions' \
+            '6:workspace:_tf_workspace' \
+            '*::arg:->args'
+
+        case $state in
+            args)
+                # Handle additional arguments if needed
+                ;;
+        esac
     fi
-
-    # Define completion states using _arguments for regular terraform commands
-    _arguments -C \
-        '1:product:_tf_products_or_config' \
-        '2:module:_tf_modules' \
-        '3:environment:_tf_environments' \
-        '4:config:_tf_configs' \
-        '5:action:_tf_actions' \
-        '6:workspace:_tf_workspace' \
-        '*::arg:->args'
-
-    case $state in
-        args)
-            # Handle additional arguments if needed
-            ;;
-    esac
 }
 
 # Completion functions for each argument position
-_tf_products_or_config() {
-    local -a options
+_tf_first_arg() {
+    local -a first_args
     local -a products
+
+    # Get products from completion
     products=($(_call_tf_completion "products"))
 
-    # Add products and config command
-    options=("${products[@]}" "config")
+    # Add config command with description
+    first_args=("config:manage tf-manage2 configuration")
 
-    if (( ${#options[@]} > 0 )); then
-        _describe 'products or config' options
+    # Add products with generic description
+    for product in "${products[@]}"; do
+        first_args+=("$product")
+    done
+
+    if (( ${#first_args[@]} > 0 )); then
+        _describe 'product or command' first_args
     fi
 }
 
@@ -156,6 +156,63 @@ _tf_workspace() {
     workspaces=($(_call_tf_completion "workspace"))
     if (( ${#workspaces[@]} > 0 )); then
         _describe 'workspace overrides' workspaces
+    fi
+}
+
+_tf_config_commands() {
+    local -a config_commands
+    local -a raw_commands
+
+    # Get raw commands from completion
+    raw_commands=($(_call_tf_completion "config"))
+
+    # Add descriptions for each command
+    for cmd in "${raw_commands[@]}"; do
+        case "$cmd" in
+            "convert")
+                config_commands+=("convert:convert legacy .tfm.conf to .tfm.yaml format")
+                ;;
+            "init")
+                config_commands+=("init:create a new configuration file")
+                ;;
+            "validate")
+                config_commands+=("validate:validate the current configuration")
+                ;;
+            *)
+                config_commands+=("$cmd:config command")
+                ;;
+        esac
+    done
+
+    if (( ${#config_commands[@]} > 0 )); then
+        _describe 'config commands' config_commands
+    fi
+}
+
+_tf_config_init_formats() {
+    local -a init_formats
+    local -a raw_formats
+
+    # Get raw formats from completion
+    raw_formats=($(_call_tf_completion "config_init"))
+
+    # Add descriptions for each format
+    for format in "${raw_formats[@]}"; do
+        case "$format" in
+            "yaml")
+                init_formats+=("yaml:create modern .tfm.yaml configuration (recommended)")
+                ;;
+            "legacy")
+                init_formats+=("legacy:create legacy .tfm.conf configuration (deprecated)")
+                ;;
+            *)
+                init_formats+=("$format:configuration format")
+                ;;
+        esac
+    done
+
+    if (( ${#init_formats[@]} > 0 )); then
+        _describe 'config init formats' init_formats
     fi
 }
 
