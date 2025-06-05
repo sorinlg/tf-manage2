@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/sorinlg/tf-manage2/internal/config"
+	"github.com/sorinlg/tf-manage2/internal/framework"
 )
 
 func TestDetectExecMode(t *testing.T) {
@@ -14,6 +15,9 @@ func TestDetectExecMode(t *testing.T) {
 	}
 	manager := NewManager(cfg)
 
+	expectUnattended := framework.AddEmphasisRed("unattended")
+	expectOperator := framework.AddEmphasisGreen("operator")
+
 	tests := []struct {
 		name     string
 		envVars  map[string]string
@@ -22,119 +26,119 @@ func TestDetectExecMode(t *testing.T) {
 		{
 			name:     "Default operator mode",
 			envVars:  map[string]string{},
-			expected: "operator",
+			expected: expectOperator,
 		},
 		{
 			name: "Manual override",
 			envVars: map[string]string{
 				"TF_EXEC_MODE_OVERRIDE": "1",
 			},
-			expected: "unattended",
+			expected: expectUnattended,
 		},
 		{
 			name: "GitHub Actions",
 			envVars: map[string]string{
 				"GITHUB_ACTIONS": "true",
 			},
-			expected: "unattended",
+			expected: expectUnattended,
 		},
 		{
 			name: "GitLab CI",
 			envVars: map[string]string{
 				"GITLAB_CI": "true",
 			},
-			expected: "unattended",
+			expected: expectUnattended,
 		},
 		{
 			name: "CircleCI",
 			envVars: map[string]string{
 				"CIRCLECI": "true",
 			},
-			expected: "unattended",
+			expected: expectUnattended,
 		},
 		{
 			name: "Travis CI",
 			envVars: map[string]string{
 				"TRAVIS": "true",
 			},
-			expected: "unattended",
+			expected: expectUnattended,
 		},
 		{
 			name: "Azure DevOps",
 			envVars: map[string]string{
 				"TF_BUILD": "True",
 			},
-			expected: "unattended",
+			expected: expectUnattended,
 		},
 		{
 			name: "Jenkins URL",
 			envVars: map[string]string{
 				"JENKINS_URL": "http://jenkins.example.com",
 			},
-			expected: "unattended",
+			expected: expectUnattended,
 		},
 		{
 			name: "Jenkins BUILD_NUMBER",
 			envVars: map[string]string{
 				"BUILD_NUMBER": "123",
 			},
-			expected: "unattended",
+			expected: expectUnattended,
 		},
 		{
 			name: "Legacy Jenkins user",
 			envVars: map[string]string{
 				"USER": "jenkins",
 			},
-			expected: "unattended",
+			expected: expectUnattended,
 		},
 		{
 			name: "Bamboo",
 			envVars: map[string]string{
 				"bamboo_buildKey": "TEST-PLAN-123",
 			},
-			expected: "unattended",
+			expected: expectUnattended,
 		},
 		{
 			name: "TeamCity",
 			envVars: map[string]string{
 				"TEAMCITY_VERSION": "2021.1",
 			},
-			expected: "unattended",
+			expected: expectUnattended,
 		},
 		{
 			name: "Buildkite",
 			envVars: map[string]string{
 				"BUILDKITE": "true",
 			},
-			expected: "unattended",
+			expected: expectUnattended,
 		},
 		{
 			name: "Drone CI",
 			envVars: map[string]string{
 				"DRONE": "true",
 			},
-			expected: "unattended",
+			expected: expectUnattended,
 		},
 		{
 			name: "AWS CodeBuild",
 			envVars: map[string]string{
 				"CODEBUILD_BUILD_ID": "test-build-123",
 			},
-			expected: "unattended",
+			expected: expectUnattended,
 		},
 		{
 			name: "Generic CI (true)",
 			envVars: map[string]string{
 				"CI": "true",
 			},
-			expected: "unattended",
+			expected: expectUnattended,
 		},
 		{
 			name: "Generic CI (1)",
 			envVars: map[string]string{
 				"CI": "1",
 			},
-			expected: "unattended",
+			expected: expectUnattended,
 		},
 		{
 			name: "Override takes precedence over CI",
@@ -142,7 +146,7 @@ func TestDetectExecMode(t *testing.T) {
 				"TF_EXEC_MODE_OVERRIDE": "1",
 				"GITHUB_ACTIONS":        "true",
 			},
-			expected: "unattended",
+			expected: expectUnattended,
 		},
 	}
 
