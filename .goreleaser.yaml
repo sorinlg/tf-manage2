@@ -48,8 +48,8 @@ release:
   # Replace existing artifacts to handle force pushes on develop branch
   replace_existing_artifacts: true
   # Allow overwriting pre-release binaries when tags are force-pushed
-  make_latest: false  # Don't mark prereleases as "latest"
-  prerelease: auto    # Auto-detect prereleases based on version (alpha/beta/rc)
+  make_latest: false # Don't mark prereleases as "latest"
+  prerelease: auto # Auto-detect prereleases based on version (alpha/beta/rc)
   name_template: "v{{.Version}}"
   header: |
     ## tf-manage2 v{{.Version}}
@@ -79,14 +79,14 @@ brews:
       name: homebrew-tap
       branch: main
       token: "{{ .Env.HOMEBREW_GITHUB_API_TOKEN }}"
+    directory: Formula
     url_template: "https://github.com/sorinlg/tf-manage2/releases/download/{{ .Tag }}/{{ .ArtifactName }}"
-    download_strategy: CurlDownloadStrategy
     commit_author:
       name: Sorin Lacriteanu
       email: sorin.lacriteanu@gmail.com
     commit_msg_template: "Brew formula update for {{ .ProjectName }} version {{ .Tag }}"
     homepage: "https://github.com/sorinlg/tf-manage2"
-    description: "Terraform workspace manager with enhanced CI/CD detection and interactive commands"
+    description: "Terraform workspace manager with enhanced CI/CD detection"
     license: "MIT"
     skip_upload: "{{ .Env.IS_PRERELEASE }}" # Skip prereleases for main tap
     dependencies:
@@ -106,14 +106,14 @@ brews:
       name: homebrew-dev-tap
       branch: main
       token: "{{ .Env.HOMEBREW_GITHUB_API_TOKEN }}"
+    directory: Formula
     url_template: "https://github.com/sorinlg/tf-manage2/releases/download/{{ .Tag }}/{{ .ArtifactName }}"
-    download_strategy: CurlDownloadStrategy
     commit_author:
       name: Sorin Lacriteanu
       email: sorin.lacriteanu@gmail.com
     commit_msg_template: "Brew formula update for {{ .ProjectName }} development version {{ .Tag }}"
     homepage: "https://github.com/sorinlg/tf-manage2"
-    description: "Terraform workspace manager with enhanced CI/CD detection and interactive commands (development version)"
+    description: "Terraform workspace manager with enhanced CI/CD detection"
     license: "MIT"
     skip_upload: "{{ not .Env.IS_PRERELEASE }}" # Only upload prereleases to dev tap
     dependencies:

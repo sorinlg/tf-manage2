@@ -26,7 +26,7 @@ brew install sorinlg/tap/tf-manage2
 For testing prerelease versions with new features:
 
 ```bash
-brew install sorinlg/dev-tap/tf-manage2
+brew install sorinlg/dev-tap/tf-manage2-dev
 ```
 
 This tap contains alpha, beta, and rc versions for early testing.

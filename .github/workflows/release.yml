@@ -38,6 +38,11 @@ jobs:
             echo "This is a stable release: ${{ github.ref_name }}"
           fi
 
+      - name: Debug environment variables
+        run: |
+          echo "Release type: ${{ steps.release-type.outputs.type }}"
+          echo "IS_PRERELEASE will be: ${{ steps.release-type.outputs.type == 'prerelease' }}"
+
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:

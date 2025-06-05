@@ -81,15 +81,11 @@ fi
 
 # Validate GoReleaser configuration
 info "Validating GoReleaser configuration..."
-if [[ "$dry_run" == true ]]; then
-  warning "DRY RUN MODE: Would validate GoReleaser configuration"
-else
-  if ! goreleaser check; then
-    error "GoReleaser configuration validation failed. Please fix the configuration before releasing."
-    exit 1
-  fi
-  info "GoReleaser configuration validation passed."
+if ! goreleaser check; then
+  error "GoReleaser configuration validation failed. Please fix the configuration before releasing."
+  exit 1
 fi
+info "GoReleaser configuration validation passed."
 
 ####################################################
 # Determine the command to use based on release type
