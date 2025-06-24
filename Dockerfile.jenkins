@@ -45,8 +45,6 @@ ARG AWS_CLI_VERSION='2.15.38'
 ARG USERNAME='tf'
 ARG USER_UID='1001'
 ARG USER_GID="${USER_UID}"
-ARG TFM_INSTALLER_DIR='/opt/tf-manage-installer'
-ARG TFM_INSTALL_PATH='/opt/terraform/tf-manage'
 ARG TARGETARCH
 
 # add kubectl yum repo
@@ -90,17 +88,14 @@ RUN \
   && microdnf clean all \
   #
   # git config
-  && git config --global --add safe.directory /app \
-  && git config --global --add safe.directory ${TFM_INSTALLER_DIR}
+  && git config --global --add safe.directory /app
 
 # switch to non-root user
 USER $USERNAME
 
-# install tf-manage
-RUN mkdir -p /home/$USERNAME/bin
+# install binaries
 COPY --from=terraform-downloader /terraform /usr/local/bin/terraform
-COPY --from=builder /app/tf /home/$USERNAME/bin
-ENV PATH="${PATH}:/home/$USERNAME/bin"
+COPY --from=builder /app/tf /usr/local/bin
 
 # set the working directory
 WORKDIR /app
