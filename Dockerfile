@@ -98,5 +98,4 @@ WORKDIR /workspace
 # Run as non-root user
 USER ${USERNAME}
 
-# Keep container running for Jenkins
 ENTRYPOINT [ "/usr/local/bin/tf" ]
