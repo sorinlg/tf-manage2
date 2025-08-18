@@ -38,7 +38,7 @@ RUN ARCH=${TARGETARCH} && \
     chmod +x terraform
 
 # Runtime stage
-FROM oraclelinux:9-slim
+FROM oraclelinux:10-slim
 
 # Image configuration
 ARG AWS_CLI_VERSION='2.15.38'
