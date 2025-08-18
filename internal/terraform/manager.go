@@ -1,6 +1,7 @@
 package terraform
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -66,7 +67,12 @@ func (m *Manager) Execute(cmd *Command) error {
 	// Generate workspace name
 	workspaceName := m.generateWorkspace(cmd, paths)
 
-	framework.Info("*** Terraform ***")
+	// Show Terraform CLI version in the banner
+	ver := getTerraformVersion()
+	if ver != "unknown" && !strings.HasPrefix(ver, "v") {
+		ver = "v" + ver
+	}
+	framework.Info(fmt.Sprintf("*** Terraform %s ***", ver))
 	framework.Info(fmt.Sprintf("Running from \"%s\"", paths.ModulePath))
 
 	// Change to module directory
@@ -293,6 +299,48 @@ func (m *Manager) isRunningInCI() bool {
 	}
 
 	return false
+}
+
+// getTerraformVersion returns the Terraform CLI version found on PATH.
+// It first tries `terraform version -json` and falls back to parsing `terraform version` output.
+func getTerraformVersion() string {
+	// Quiet flags: we only need the output string
+	flags := framework.DefaultCmdFlags()
+	flags.PrintMessage = false
+	flags.PrintOutput = false
+	flags.PrintStatus = false
+	flags.PrintOutcome = false
+
+	// Preferred: JSON output
+	res := framework.RunCmd("terraform version -json", "Detecting Terraform version", flags)
+	if res != nil && res.Success {
+		var payload struct {
+			TerraformVersion string `json:"terraform_version"`
+		}
+		if err := json.Unmarshal([]byte(res.Output), &payload); err == nil {
+			if payload.TerraformVersion != "" {
+				return payload.TerraformVersion
+			}
+		}
+	}
+
+	// Fallback: plain text
+	res = framework.RunCmd("terraform version", "Detecting Terraform version", flags)
+	if res != nil && res.Success {
+		// Typical first line: "Terraform v1.9.5" or "Terraform v1.5.7 on darwin_amd64"
+		out := strings.TrimSpace(res.Output)
+		if idx := strings.IndexByte(out, '\n'); idx >= 0 {
+			out = strings.TrimSpace(out[:idx])
+		}
+		for _, tok := range strings.Fields(out) {
+			if strings.HasPrefix(tok, "v") {
+				tok = strings.TrimRight(tok, ",")
+				return tok
+			}
+		}
+	}
+
+	return "unknown"
 }
 
 func (m *Manager) ensureWorkspace(workspaceName string) error {
