@@ -46,7 +46,7 @@ RUN ARCH=${TARGETARCH} && \
     chmod +x terraform
 
 # Utility stage - prepare Jenkins utilities
-FROM debian:12-slim AS utility-builder
+FROM debian:13-slim AS utility-builder
 
 # Re-declare ARGs for this stage
 ARG USERNAME
