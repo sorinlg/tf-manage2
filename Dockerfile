@@ -30,7 +30,7 @@ FROM alpine:3.22 AS terraform-downloader
 
 # Image configuration
 ARG AWS_CLI_VERSION='2.15.38'
-ARG TERRAFORM_VERSION='1.12.1'
+ARG TERRAFORM_VERSION='1.12.2'
 ARG TARGETARCH
 
 # Install curl and unzip for downloading Terraform
