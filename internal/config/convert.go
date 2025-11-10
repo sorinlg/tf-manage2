@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"gopkg.in/yaml.v3"
+	"github.com/goccy/go-yaml"
 )
 
 // ConvertLegacyToYAML converts a legacy .tfm.conf file to the new .tfm.yaml format
