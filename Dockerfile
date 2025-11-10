@@ -6,7 +6,7 @@ ARG USER_UID='1001'
 ARG USER_GID="${USER_UID}"
 
 # Build stage
-FROM golang:1.25.3 AS builder
+FROM golang:1.25.4 AS builder
 
 # Set working directory
 WORKDIR /app
