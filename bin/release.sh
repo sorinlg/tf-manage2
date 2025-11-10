@@ -101,7 +101,7 @@ info "GoReleaser configuration validation passed."
 # Set the svu command based on the release type
 svu_command="svu next"
 if [[ "$release_type" == "prerelease" ]]; then
-  svu_command="svu prerelease --pre-release=rc"
+  svu_command="svu prerelease --prerelease=rc"
 fi
 
 # Only force push if it's a prerelease
