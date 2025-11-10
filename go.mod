@@ -1,5 +1,7 @@
 module github.com/sorinlg/tf-manage2
 
-go 1.23.1
+go 1.25
 
-require gopkg.in/yaml.v3 v3.0.1
+toolchain go1.25.4
+
+require github.com/goccy/go-yaml v1.18.0
