@@ -26,7 +26,7 @@ go.work.sum
 
 # ignore local tf binary (sometimes used for local testing)
 tf
-tf-manage
+tf-manage2
 
 # Added by goreleaser init:
 dist/

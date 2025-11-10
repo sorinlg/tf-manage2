@@ -1,138 +1,245 @@
 #!/usr/bin/env bash
-
-# This script is used to publish (pre)releases to GitHub
+# Semantic release script for tf-manage2
+# Supports both interactive (local) and CI (GitHub Actions) modes
+#
+# Interactive Usage:
+#   ./bin/release.sh           # Interactive release
+#   ./bin/release.sh --dry-run # Preview next version without releasing
+#
+# CI Usage (GitHub Actions):
+#   Sets GITHUB_ACTIONS=true environment variable
+#   Writes outputs to $GITHUB_OUTPUT
+#   Non-interactive, no prompts
 
 set -euo pipefail
 
-info() {
-  echo -e "\033[1;34m[INFO]\033[0m $@"
-}
-error() {
-  echo -e "\033[1;31m[ERROR]\033[0m $@" >&2
-}
-warning() {
-  echo -e "\033[1;33m[WARNING]\033[0m $@"
-}
+# Detect CI mode (GitHub Actions)
+CI_MODE="${GITHUB_ACTIONS:-false}"
 
-# Parse command line arguments
-dry_run=false
-while [[ $# -gt 0 ]]; do
-  case $1 in
-    --dry-run)
-      dry_run=true
-      shift
-      ;;
-    -h|--help)
-      echo "Usage: $0 [--dry-run] [--help]"
-      echo ""
-      echo "Options:"
-      echo "  --dry-run    Show what would be done without actually doing it"
-      echo "  --help       Show this help message"
-      exit 0
-      ;;
-    *)
-      error "Unknown option: $1"
-      echo "Use --help for usage information"
-      exit 1
-      ;;
-  esac
-done
-
-# Get release type based on branch name
-branch=$(git rev-parse --abbrev-ref HEAD)
-if [[ "$branch" == "main" ]]; then
-  release_type="stable"
-elif [[ "$branch" == "develop" ]]; then
-  release_type="prerelease"
+# Colors (disabled in CI mode)
+if [[ "$CI_MODE" == "true" ]]; then
+  RED=''
+  GREEN=''
+  YELLOW=''
+  BLUE=''
+  NC=''
 else
-  error "Unsupported branch: $branch"
-  exit 1
+  RED='\033[0;31m'
+  GREEN='\033[0;32m'
+  YELLOW='\033[1;33m'
+  BLUE='\033[0;34m'
+  NC='\033[0m'
+fi
+
+error() { echo -e "${RED}Error: $1${NC}" >&2; }
+info() { echo -e "${GREEN}$1${NC}"; }
+warning() { echo -e "${YELLOW}Warning: $1${NC}"; }
+preview() { echo -e "${BLUE}$1${NC}"; }
+
+# Parse arguments (interactive mode only)
+dry_run=false
+if [[ "$CI_MODE" == "false" ]] && [[ "${1:-}" == "--dry-run" ]]; then
+  dry_run=true
+  preview "========================================="
+  preview "DRY RUN MODE - No changes will be made"
+  preview "========================================="
+  echo ""
+fi
+
+# Show help in interactive mode
+if [[ "$CI_MODE" == "false" ]] && [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+  echo "Usage: $0 [--dry-run] [--help]"
+  echo ""
+  echo "Options:"
+  echo "  --dry-run    Show what would be done without actually doing it"
+  echo "  --help       Show this help message"
+  exit 0
 fi
 
 # Ensure svu is available
 if ! command -v svu &> /dev/null; then
-  error "svu command not found. Please install svu to use this script."
+  error "svu not found. Install with: go install github.com/caarlos0/svu/v3@latest"
   exit 1
 fi
 
-# Ensure git is available
-if ! command -v git &> /dev/null; then
-  error "git command not found. Please install git to use this script."
+# Get current branch
+branch="${GITHUB_REF_NAME:-$(git rev-parse --abbrev-ref HEAD)}"
+
+# Determine release type based on branch
+case "$branch" in
+  main)
+    release_type="stable"
+    svu_command="svu next"
+    git_force_flag=""
+    is_prerelease="false"
+    ;;
+  develop)
+    release_type="prerelease"
+    svu_command="svu prerelease --prerelease=rc"
+    git_force_flag="-f"
+    is_prerelease="true"
+    ;;
+  *)
+    error "Unsupported branch: $branch (must be 'main' or 'develop')"
+    exit 1
+    ;;
+esac
+
+# Interactive mode: validate working directory
+if [[ "$CI_MODE" == "false" ]]; then
+  # Ensure working directory is clean
+  if ! git diff-index --quiet HEAD --; then
+    error "Working directory is not clean. Please commit or stash your changes."
+    exit 1
+  fi
+
+  # Ensure we're up to date with remote (for stable releases only)
+  if [[ "$release_type" == "stable" ]]; then
+    if ! git merge-base --is-ancestor origin/"$branch" HEAD; then
+      error "Branch is behind origin/$branch. Pull latest changes first."
+      exit 1
+    fi
+  fi
+
+  # Warn about unpushed commits
+  if ! git merge-base --is-ancestor HEAD origin/"$branch"; then
+    warning "Branch has unpushed commits ahead of origin/$branch"
+  fi
+
+  # Validate GoReleaser configuration
+  if command -v goreleaser &> /dev/null; then
+    info "Validating GoReleaser configuration..."
+    if ! goreleaser check; then
+      error "GoReleaser configuration validation failed. Please fix the configuration before releasing."
+      exit 1
+    fi
+    info "GoReleaser configuration validation passed."
+  else
+    warning "goreleaser not found, skipping configuration validation"
+  fi
+fi
+
+# Calculate next version
+tag=$(eval $svu_command)
+if [[ -z "$tag" ]]; then
+  error "Failed to determine next version tag"
   exit 1
 fi
 
-# Ensure goreleaser is available
-if ! command -v goreleaser &> /dev/null; then
-  error "goreleaser command not found. Please install goreleaser to use this script."
-  exit 1
-fi
-
-# Ensure the working directory is clean
-if ! git diff-index --quiet HEAD --; then
-  error "Working directory is not clean. Please commit or stash your changes before releasing."
-  exit 1
-fi
-
-# Ensure the current branch is up to date, but only if it's not a prerelease
-if [[ "$release_type" != "prerelease" ]]; then
-  # Check if we're missing remote commits
-  if ! git merge-base --is-ancestor origin/"$branch" HEAD; then
-    error "Current branch is missing commits from origin/$branch. Please pull the latest changes."
+# Check if release already exists (requires gh CLI)
+should_release="true"
+if command -v gh &> /dev/null; then
+  if gh release view "$tag" &>/dev/null 2>&1; then
+    should_release="false"
+    if [[ "$CI_MODE" == "false" ]]; then
+      warning "Release $tag already exists"
+    else
+      echo "⏭️  Release $tag already exists, skipping"
+    fi
+  fi
+else
+  if [[ "$CI_MODE" == "true" ]]; then
+    error "gh CLI not found (required in CI mode)"
     exit 1
   fi
 fi
 
-# Check if we have unpushed commits (warn but don't fail)
-if ! git merge-base --is-ancestor HEAD origin/"$branch"; then
-  warning "Current branch has unpushed commits ahead of origin/$branch."
+# Output to GITHUB_OUTPUT (CI mode only)
+if [[ "$CI_MODE" == "true" ]] && [[ -n "${GITHUB_OUTPUT:-}" ]]; then
+  {
+    echo "version=$tag"
+    echo "is-prerelease=$is_prerelease"
+    echo "should-release=$should_release"
+  } >> "$GITHUB_OUTPUT"
 fi
 
-# Validate GoReleaser configuration
-info "Validating GoReleaser configuration..."
-if ! goreleaser check; then
-  error "GoReleaser configuration validation failed. Please fix the configuration before releasing."
-  exit 1
-fi
-info "GoReleaser configuration validation passed."
-
-####################################################
-# Determine the command to use based on release type
-####################################################
-# Set the svu command based on the release type
-svu_command="svu next"
-if [[ "$release_type" == "prerelease" ]]; then
-  svu_command="svu prerelease --prerelease=rc"
+# Exit early if release already exists
+if [[ "$should_release" == "false" ]]; then
+  exit 0
 fi
 
-# Only force push if it's a prerelease
-git_force_flag=""
-if [[ "$release_type" == "prerelease" ]]; then
-  git_force_flag="-f"
+# Interactive mode: Display release information and confirm
+if [[ "$CI_MODE" == "false" ]]; then
+  info "========================================="
+  info "Release Information"
+  info "========================================="
+  info "Branch:       $branch"
+  info "Release type: $release_type"
+  info "Next version: $tag"
+  info "Force push:   $([[ "$git_force_flag" ]] && echo "yes (allowed for prereleases)" || echo "no")"
+  info "========================================="
+
+  # Dry run mode - preview and exit
+  if [[ "$dry_run" == true ]]; then
+    preview "========================================="
+    preview "Preview: The following would be executed"
+    preview "========================================="
+    echo "  git tag $git_force_flag $tag"
+    echo "  git push $git_force_flag origin $tag"
+    preview "========================================="
+    preview "This will trigger the GitHub Actions workflow:"
+    preview "  1. Create/update tag"
+    preview "  2. Run goreleaser"
+    preview "     - Build binaries for linux/darwin (amd64/arm64)"
+    preview "     - Create GitHub release with artifacts"
+    preview "     - Generate changelog from commits"
+    if [[ "$release_type" == "stable" ]]; then
+      preview "     - Update Homebrew tap (sorinlg/homebrew-tap)"
+    else
+      preview "     - Update Homebrew dev tap (sorinlg/homebrew-dev-tap)"
+    fi
+    preview "========================================="
+    info "Dry run complete. No changes were made."
+    exit 0
+  fi
+
+  # Confirm with user
+  echo ""
+  read -p "Create and push tag $tag? (y/N) " -n 1 -r
+  echo ""
+
+  if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    warning "Release cancelled by user"
+    exit 0
+  fi
 fi
 
-# Create a new tag and push it
-tag=$(eval $svu_command)
-if [[ -z "$tag" ]]; then
-  error "Failed to determine the next version tag."
-  exit 1
+# Create and push tag
+if [[ "$CI_MODE" == "false" ]]; then
+  info "Creating tag $tag..."
 fi
 
-info "Source branch: $branch"
-info "Release type: $release_type"
-info "Force push allowed: $([[ "$git_force_flag" ]] && echo "yes" || echo "no")"
-info "Creating tag: $tag"
+git tag $git_force_flag $tag
 
-if [[ "$dry_run" == true ]]; then
-  warning "DRY RUN MODE: The following commands would be executed:"
-  echo "  git push $git_force_flag origin $branch"
-  echo "  git tag $git_force_flag $tag"
-  echo "  git push $git_force_flag origin $tag"
-  info "Dry run complete. No changes were made."
+if [[ "$CI_MODE" == "false" ]]; then
+  info "Pushing tag to origin..."
+fi
+
+git push $git_force_flag origin $tag
+
+# Success message
+if [[ "$CI_MODE" == "false" ]]; then
+  echo ""
+  info "========================================="
+  info "✅ Release tag $tag created and pushed"
+  info "========================================="
+  info "🚀 GitHub Actions will now:"
+  info "   1. Run goreleaser"
+  info "      - Build binaries for linux/darwin (amd64/arm64)"
+  info "      - Create GitHub release with artifacts"
+  info "      - Generate changelog from commits"
+  if [[ "$release_type" == "stable" ]]; then
+    info "      - Update Homebrew tap (sorinlg/homebrew-tap)"
+  else
+    info "      - Update Homebrew dev tap (sorinlg/homebrew-dev-tap)"
+  fi
+  info ""
+  info "📺 Watch progress:"
+  info "   https://github.com/sorinlg/tf-manage2/actions"
+  info ""
+  info "📦 Release will be available at:"
+  info "   https://github.com/sorinlg/tf-manage2/releases/tag/$tag"
+  info "========================================="
 else
-  # Push the branch
-  git push $git_force_flag origin "$branch"
-  # Create the tag
-  git tag $git_force_flag $tag
-  git push $git_force_flag origin $tag
-  info "Release $tag created and pushed successfully!"
+  echo "✅ Tag $tag created and pushed"
 fi
