@@ -522,6 +522,12 @@ func (m *Manager) terraformApply(cmd *Command, paths *Paths) error {
 func (m *Manager) terraformApplyPlan(cmd *Command, paths *Paths) error {
 	// Apply using the plan file
 	terraformCmd := fmt.Sprintf("terraform apply \"%s\"", paths.PlanFile)
+
+	// Add extra arguments in case we're running in "unattended" mode
+	if m.detectExecMode() == "unattended" {
+		terraformCmd += " -input=false"
+	}
+
 	if cmd.ActionFlags != "" {
 		terraformCmd += " " + cmd.ActionFlags
 	}
