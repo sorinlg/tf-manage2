@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 )
 
 // CmdFlags represents the configuration flags for command execution
@@ -188,6 +189,13 @@ func execSystemCommand(command string, flags *CmdFlags) *CmdResult {
 	return execCommand(cmd, flags)
 }
 
+// outputLine represents a line of output with its formatting context
+type outputLine struct {
+	text     string
+	isStderr bool
+	decorate bool
+}
+
 // execCommand is the common execution function for both direct and shell commands
 func execCommand(cmd *exec.Cmd, flags *CmdFlags) *CmdResult {
 	var output strings.Builder
@@ -226,35 +234,68 @@ func execCommand(cmd *exec.Cmd, flags *CmdFlags) *CmdResult {
 		}
 	}
 
-	// Process stdout
+	// Use WaitGroups to coordinate goroutines
+	var pumpWg sync.WaitGroup  // For stdout/stderr pump goroutines
+	var printWg sync.WaitGroup // For output printer goroutine
+
+	// Create buffered channel for async output handling
+	// Buffer size prevents blocking when output is faster than printing
+	outputChan := make(chan outputLine, 100)
+
+	// Start output printer goroutine (decouples reading from writing)
+	printWg.Add(1)
 	go func() {
-		scanner := bufio.NewScanner(stdoutPipe)
-		for scanner.Scan() {
-			line := scanner.Text()
-			output.WriteString(line + "\n")
-			if flags.PrintOutput {
-				if flags.DecorateOutput {
-					decoratedLine := AddEmphasisBlue(fmt.Sprintf("[%s]", "cmd")) + " " + line
+		defer printWg.Done()
+		for line := range outputChan {
+			if line.decorate {
+				if line.isStderr {
+					decoratedLine := AddEmphasisRed(fmt.Sprintf("[%s]", "err")) + " " + line.text
 					fmt.Println(decoratedLine)
 				} else {
-					fmt.Println(line)
+					decoratedLine := AddEmphasisBlue(fmt.Sprintf("[%s]", "cmd")) + " " + line.text
+					fmt.Println(decoratedLine)
+				}
+			} else {
+				if line.isStderr {
+					fmt.Fprintln(os.Stderr, line.text)
+				} else {
+					fmt.Println(line.text)
 				}
 			}
 		}
 	}()
 
-	// Process stderr
+	// Process stdout - pump lines into channel
+	pumpWg.Add(1)
 	go func() {
+		defer pumpWg.Done()
+		scanner := bufio.NewScanner(stdoutPipe)
+		for scanner.Scan() {
+			line := scanner.Text()
+			output.WriteString(line + "\n")
+			if flags.PrintOutput {
+				outputChan <- outputLine{
+					text:     line,
+					isStderr: false,
+					decorate: flags.DecorateOutput,
+				}
+			}
+		}
+	}()
+
+	// Process stderr - pump lines into channel
+	pumpWg.Add(1)
+	go func() {
+		defer pumpWg.Done()
 		scanner := bufio.NewScanner(stderrPipe)
 		for scanner.Scan() {
 			line := scanner.Text()
 			errorOutput.WriteString(line + "\n")
 			if flags.PrintOutput {
-				if flags.DecorateOutput {
-					decoratedLine := AddEmphasisRed(fmt.Sprintf("[%s]", "err")) + " " + line
-					fmt.Println(decoratedLine)
-				} else {
-					fmt.Fprintln(os.Stderr, line)
+				outputChan <- outputLine{
+					text:     line,
+					isStderr: true,
+					decorate: flags.DecorateOutput,
 				}
 			}
 		}
@@ -262,6 +303,15 @@ func execCommand(cmd *exec.Cmd, flags *CmdFlags) *CmdResult {
 
 	// Wait for the command to complete
 	err = cmd.Wait()
+
+	// Wait for all pump goroutines to finish reading
+	pumpWg.Wait()
+
+	// Close channel after all pumps are done
+	close(outputChan)
+
+	// Wait for the printer goroutine to finish printing
+	printWg.Wait()
 
 	exitCode := 0
 	if err != nil {
