@@ -310,6 +310,7 @@ func getTerraformVersion() string {
 	flags.PrintOutput = false
 	flags.PrintStatus = false
 	flags.PrintOutcome = false
+	flags.DecorateOutput = true // Force non-interactive mode to capture output
 
 	// Preferred: JSON output
 	res := framework.RunCmd("terraform version -json", "Detecting Terraform version", flags)
