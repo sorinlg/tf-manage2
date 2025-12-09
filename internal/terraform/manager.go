@@ -345,11 +345,13 @@ func getTerraformVersion() string {
 
 func (m *Manager) ensureWorkspace(workspaceName string) error {
 	// Execute terraform workspace list command directly
+	// Important: Use DecorateOutput = true to capture output (non-interactive mode)
 	flags := framework.DefaultCmdFlags()
 	flags.PrintOutput = false
 	flags.PrintMessage = false
 	flags.PrintStatus = true
 	flags.PrintOutcome = false
+	flags.DecorateOutput = true // Force non-interactive mode to capture output
 
 	result := framework.RunCmd(
 		"terraform workspace list",
