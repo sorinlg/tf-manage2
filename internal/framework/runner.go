@@ -201,7 +201,54 @@ func execCommand(cmd *exec.Cmd, flags *CmdFlags) *CmdResult {
 	var output strings.Builder
 	var errorOutput strings.Builder
 
-	// Always capture stdout and stderr for internal use
+	// For interactive commands, connect pipes differently to handle unbuffered output
+	isInteractive := !flags.DecorateOutput
+
+	if isInteractive {
+		// Interactive mode: pass through stdout/stderr directly and capture in background
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+
+		// Start the command
+		if err := cmd.Start(); err != nil {
+			return &CmdResult{
+				ExitCode: 1,
+				Success:  false,
+				Error:    err.Error(),
+			}
+		}
+
+		// Wait for the command to complete
+		err := cmd.Wait()
+
+		exitCode := 0
+		if err != nil {
+			if exitError, ok := err.(*exec.ExitError); ok {
+				exitCode = exitError.ExitCode()
+			} else {
+				exitCode = 1
+			}
+		}
+
+		// Check if exit code is valid
+		success := false
+		for _, validCode := range flags.ValidExitCodes {
+			if exitCode == validCode {
+				success = true
+				break
+			}
+		}
+
+		return &CmdResult{
+			ExitCode: exitCode,
+			Success:  success,
+			Output:   "", // No output captured in interactive mode
+			Error:    "",
+		}
+	}
+
+	// Non-interactive mode: capture stdout and stderr
 	stdoutPipe, err := cmd.StdoutPipe()
 	if err != nil {
 		return &CmdResult{
@@ -218,11 +265,6 @@ func execCommand(cmd *exec.Cmd, flags *CmdFlags) *CmdResult {
 			Success:  false,
 			Error:    err.Error(),
 		}
-	}
-
-	// For interactive commands, we need to connect stdin
-	if !flags.DecorateOutput {
-		cmd.Stdin = os.Stdin
 	}
 
 	// Start the command
