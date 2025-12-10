@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Semantic release script for tf-manage2
+# Semantic release script for actions.sync-oci-references
 # Supports both interactive (local) and CI (GitHub Actions) modes
 #
 # Interactive Usage:
@@ -46,16 +46,6 @@ if [[ "$CI_MODE" == "false" ]] && [[ "${1:-}" == "--dry-run" ]]; then
   echo ""
 fi
 
-# Show help in interactive mode
-if [[ "$CI_MODE" == "false" ]] && [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
-  echo "Usage: $0 [--dry-run] [--help]"
-  echo ""
-  echo "Options:"
-  echo "  --dry-run    Show what would be done without actually doing it"
-  echo "  --help       Show this help message"
-  exit 0
-fi
-
 # Ensure svu is available
 if ! command -v svu &> /dev/null; then
   error "svu not found. Install with: go install github.com/caarlos0/svu/v3@latest"
@@ -75,7 +65,7 @@ case "$branch" in
     ;;
   develop)
     release_type="prerelease"
-    svu_command="svu prerelease --prerelease=rc"
+    svu_command="svu prerelease --prerelease=rc --tag.mode=current"
     git_force_flag="-f"
     is_prerelease="true"
     ;;
@@ -105,18 +95,6 @@ if [[ "$CI_MODE" == "false" ]]; then
   if ! git merge-base --is-ancestor HEAD origin/"$branch"; then
     warning "Branch has unpushed commits ahead of origin/$branch"
   fi
-
-  # Validate GoReleaser configuration
-  if command -v goreleaser &> /dev/null; then
-    info "Validating GoReleaser configuration..."
-    if ! goreleaser check; then
-      error "GoReleaser configuration validation failed. Please fix the configuration before releasing."
-      exit 1
-    fi
-    info "GoReleaser configuration validation passed."
-  else
-    warning "goreleaser not found, skipping configuration validation"
-  fi
 fi
 
 # Calculate next version
@@ -130,11 +108,23 @@ fi
 should_release="true"
 if command -v gh &> /dev/null; then
   if gh release view "$tag" &>/dev/null 2>&1; then
-    should_release="false"
-    if [[ "$CI_MODE" == "false" ]]; then
-      warning "Release $tag already exists"
+    if [[ "$is_prerelease" == "true" ]]; then
+      # For prereleases: delete and recreate
+      if [[ "$CI_MODE" == "false" ]]; then
+        warning "Prerelease $tag exists, will be deleted and recreated"
+      else
+        echo "🔄 Prerelease $tag exists, deleting to recreate..."
+      fi
+      gh release delete "$tag" --yes
+      should_release="true"
     else
-      echo "⏭️  Release $tag already exists, skipping"
+      # For stable releases: skip if exists
+      should_release="false"
+      if [[ "$CI_MODE" == "false" ]]; then
+        warning "Release $tag already exists"
+      else
+        echo "⏭️  Release $tag already exists, skipping"
+      fi
     fi
   fi
 else
@@ -144,12 +134,25 @@ else
   fi
 fi
 
+# Calculate previous stable tag (CI mode only)
+previous_stable_tag=""
+if [[ "$CI_MODE" == "true" ]] && command -v gh &> /dev/null; then
+  # Get the latest stable release (excluding pre-releases)
+  previous_stable_tag=$(gh release list --exclude-pre-releases --limit 1 --json tagName --jq '.[0].tagName' 2>/dev/null || echo "")
+  if [[ -n "$previous_stable_tag" ]]; then
+    echo "📌 Previous stable tag: $previous_stable_tag"
+  else
+    echo "⚠️ No previous stable release found"
+  fi
+fi
+
 # Output to GITHUB_OUTPUT (CI mode only)
 if [[ "$CI_MODE" == "true" ]] && [[ -n "${GITHUB_OUTPUT:-}" ]]; then
   {
     echo "version=$tag"
     echo "is-prerelease=$is_prerelease"
     echo "should-release=$should_release"
+    echo "previous-stable-tag=$previous_stable_tag"
   } >> "$GITHUB_OUTPUT"
 fi
 
