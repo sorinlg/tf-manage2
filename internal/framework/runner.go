@@ -292,7 +292,7 @@ func execCommand(cmd *exec.Cmd, flags *CmdFlags) *CmdResult {
 			if line.decorate {
 				if line.isStderr {
 					decoratedLine := AddEmphasisRed(fmt.Sprintf("[%s]", "err")) + " " + line.text
-					fmt.Println(decoratedLine)
+					fmt.Fprintln(os.Stderr, decoratedLine)
 				} else {
 					decoratedLine := AddEmphasisBlue(fmt.Sprintf("[%s]", "cmd")) + " " + line.text
 					fmt.Println(decoratedLine)
@@ -551,7 +551,7 @@ func parseStatus(message string, result *CmdResult, flags *CmdFlags, failMessage
 		format += " " + outcomeMessage
 	}
 
-	fmt.Println(format)
+	fmt.Fprintln(os.Stderr, format)
 
 	// Handle failure
 	if !result.Success {
